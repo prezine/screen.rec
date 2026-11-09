@@ -1,0 +1,64 @@
+appId: io.pandascrow.toom
+productName: Toom
+# toom:// links (magic sign-in links, return from checkout)
+protocols:
+  - name: Toom
+    schemes: [toom]
+# where installed apps look for updates (electron-updater). Upload the files in dist/ —
+# latest*.yml plus the installers — to this URL after each release.
+publish:
+  provider: generic
+  url: ${env.TOOM_UPDATE_URL}
+  channel: latest
+directories:
+  buildResources: build
+  output: dist
+files:
+  - out/**/*
+  - '!out/**/*.map'
+  - package.json
+# smaller download: best compression, and only English Chromium resources (~40 MB less)
+compression: maximum
+electronLanguages: [en, en-US, en-GB, en_GB]
+# Electron fuses: switch off ways to run the app's binary as a plain Node.js or debug it
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+asarUnpack:
+  - node_modules/uiohook-napi/**
+  - node_modules/electron-liquid-glass/**
+mac:
+  category: public.app-category.video
+  target:
+    # zip is what auto-update downloads on macOS
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  hardenedRuntime: true
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSCameraUsageDescription: Toom uses your camera to record a webcam overlay.
+    NSMicrophoneUsageDescription: Toom uses your microphone to record narration.
+    NSScreenCaptureUsageDescription: Toom records your screen.
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+extraResources:
+  - from: resources
+    to: resources
+  # on-device text recognition for auto privacy masks
+  - from: node_modules/tesseract.js/dist/worker.min.js
+    to: ocr/worker.min.js
+  - from: node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js
+    to: ocr/tesseract-core-simd-lstm.wasm.js
+  - from: node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz
+    to: ocr/eng.traineddata.gz

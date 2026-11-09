@@ -1,0 +1,465 @@
+@import 'tailwindcss';
+@source './';
+
+@font-face {
+  font-family: 'Degular';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  /* Prefer Degular Text if it's installed on this machine, then the bundled Degular Display. */
+  src:
+    local('Degular Text Regular'),
+    local('DegularText-Regular'),
+    url('/fonts/DegularDisplay-Regular.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Degular';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  /* Prefer Degular Text if it's installed on this machine, then the bundled Degular Display. */
+  src:
+    local('Degular Text Medium'),
+    local('DegularText-Medium'),
+    url('/fonts/DegularDisplay-Medium.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Degular';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  /* Prefer Degular Text if it's installed on this machine, then the bundled Degular Display. */
+  src:
+    local('Degular Text Semibold'),
+    local('DegularText-SemiBold'),
+    url('/fonts/DegularDisplay-Semibold.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Degular';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  /* Prefer Degular Text if it's installed on this machine, then the bundled Degular Display. */
+  src:
+    local('Degular Text Bold'),
+    local('DegularText-Bold'),
+    url('/fonts/DegularDisplay-Bold.otf') format('opentype');
+}
+
+@theme {
+  --font-sans: 'Degular', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --color-ink-950: #08080b;
+  --color-ink-900: #0e0e12;
+  --color-ink-850: #131318;
+  --color-ink-800: #18181e;
+  --color-ink-700: #22222a;
+  --color-ink-600: #2e2e38;
+  --color-ink-500: #45454f;
+  --color-ink-400: #6b6b78;
+  --color-ink-300: #9a9aa6;
+  --color-ink-200: #c9c9d1;
+  --color-ink-100: #ececf1;
+
+  --color-brand-300: #b7adff;
+  --color-brand-400: #8f80ff;
+  --color-brand-500: #6d5cff;
+  --color-brand-600: #5a45f5;
+  --color-brand-700: #4733d6;
+
+  --color-clip-400: #e8b04a;
+  --color-clip-500: #d6992c;
+  --color-clip-600: #b97f1c;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+  body {
+    @apply bg-ink-950 text-ink-100 font-sans text-[13px] antialiased select-none;
+    /* Degular is drawn tight; open it up a little for small UI sizes */
+    letter-spacing: 0.012em;
+    font-synthesis: none;
+  }
+  html.toolbar,
+  html.toolbar body,
+  html.toolbar #root {
+    background: transparent;
+  }
+  button {
+    cursor: default;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-ink-700);
+    border-radius: 10px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@utility drag {
+  -webkit-app-region: drag;
+}
+@utility no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Slider: track fill driven by --fill (0..100%) */
+.range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  background: transparent;
+}
+.range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 4px;
+  background: linear-gradient(
+    to right,
+    var(--color-brand-500) 0%,
+    var(--color-brand-500) var(--fill, 0%),
+    rgb(255 255 255 / 0.14) var(--fill, 0%),
+    rgb(255 255 255 / 0.14) 100%
+  );
+}
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--color-brand-400);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+  transition: transform 0.1s;
+}
+.range:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+.range.neutral::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--color-ink-400) 0%,
+    var(--color-ink-400) var(--fill, 0%),
+    rgb(255 255 255 / 0.14) var(--fill, 0%),
+    rgb(255 255 255 / 0.14) 100%
+  );
+}
+.range.neutral::-webkit-slider-thumb {
+  background: var(--color-ink-200);
+  border-color: var(--color-ink-200);
+}
+
+@keyframes pulse-dot {
+  50% {
+    opacity: 0.35;
+  }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 1.2s infinite;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Liquid Glass
+   A translucent material with a bright specular rim, a soft inner glow and depth.
+   - .glass         panels and bars (blurs whatever is behind it in the page)
+   - .glass-strong  menus, popovers, dialogs (more tint, for legibility)
+   - .glass-chip    the selected item inside a glass surface
+   On macOS 26+ the launcher and settings sit on Apple's native glass; elements marked
+   [data-native-glass] then drop their own blur and keep only the light effects.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* set from Settings → Appearance (see lib/appearance.ts) */
+  --glass-tint-a: 0.42; /* how dark/opaque the glass is */
+  --glass-min-a: 0; /* windows with nothing behind them to blur raise this */
+  --glass-blur: 22px;
+  --glass-sat: 180%;
+  --glass-spec: 0.7; /* specular highlight strength */
+  --glass-rgb: 22 22 30;
+}
+
+@layer components {
+  .glass,
+  .glass-strong {
+    --a: max(var(--glass-tint-a), var(--glass-min-a));
+    position: relative;
+    isolation: isolate;
+    background:
+      /* light falling on the top of the pane */
+      radial-gradient(130% 70% at 30% -10%, rgb(255 255 255 / calc(0.14 * var(--glass-spec))), transparent 62%),
+      linear-gradient(180deg, rgb(255 255 255 / calc(0.06 * var(--glass-spec))), rgb(255 255 255 / 0) 40%),
+      rgb(var(--glass-rgb) / var(--a));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)) brightness(1.04);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)) brightness(1.04);
+    box-shadow:
+      /* thin bright lip at the top, darker at the bottom: the edge of a thick pane */
+      inset 0 1px 0.5px rgb(255 255 255 / calc(0.32 * var(--glass-spec))),
+      inset 0 -1px 0.5px rgb(255 255 255 / calc(0.1 * var(--glass-spec))),
+      /* inner glow where light gathers along the rim */ inset 0 0 0 1px
+        rgb(255 255 255 / calc(0.05 + 0.05 * var(--glass-spec))),
+      inset 0 10px 24px -14px rgb(255 255 255 / calc(0.16 * var(--glass-spec))),
+      inset 0 -12px 22px -16px rgb(255 255 255 / calc(0.1 * var(--glass-spec))),
+      /* depth */ 0 22px 60px -18px rgb(0 0 0 / 0.6),
+      0 2px 6px rgb(0 0 0 / 0.16);
+  }
+  .glass-strong {
+    --a: max(calc(var(--glass-tint-a) + 0.3), var(--glass-min-a));
+  }
+  /* keep text crisp when bright content shows through clear glass */
+  .glass,
+  .glass-strong {
+    text-shadow: 0 0.5px 1.5px rgb(0 0 0 / calc(0.45 - var(--glass-tint-a) * 0.4));
+  }
+  /* specular rim: bright where light hits (top-left), dimmer around, a glint at the bottom-right */
+  .glass::before,
+  .glass-strong::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(
+      from 210deg at 50% 50%,
+      rgb(255 255 255 / calc(0.08 * var(--glass-spec))) 0deg,
+      rgb(255 255 255 / calc(0.62 * var(--glass-spec))) 60deg,
+      rgb(255 255 255 / calc(0.12 * var(--glass-spec))) 120deg,
+      rgb(255 255 255 / calc(0.05 * var(--glass-spec))) 180deg,
+      rgb(255 255 255 / calc(0.36 * var(--glass-spec))) 240deg,
+      rgb(255 255 255 / calc(0.08 * var(--glass-spec))) 300deg,
+      rgb(255 255 255 / calc(0.08 * var(--glass-spec))) 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  /* native glass underneath: keep only the light effects */
+  .glass[data-native-glass],
+  .glass-strong[data-native-glass] {
+    background:
+      radial-gradient(130% 70% at 30% -10%, rgb(255 255 255 / calc(0.1 * var(--glass-spec))), transparent 62%),
+      rgb(10 10 14 / calc(var(--glass-tint-a) * 0.3));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow:
+      inset 0 1px 0.5px rgb(255 255 255 / calc(0.28 * var(--glass-spec))),
+      inset 0 -1px 0.5px rgb(255 255 255 / calc(0.08 * var(--glass-spec)));
+  }
+  .glass.glass-flat {
+    box-shadow:
+      inset 0 1px 0.5px rgb(255 255 255 / calc(0.32 * var(--glass-spec))),
+      inset 0 -1px 0.5px rgb(255 255 255 / calc(0.1 * var(--glass-spec))),
+      inset 0 0 0 1px rgb(255 255 255 / calc(0.05 + 0.05 * var(--glass-spec))),
+      inset 0 10px 24px -14px rgb(255 255 255 / calc(0.16 * var(--glass-spec)));
+  }
+  .glass.glass-flat[data-native-glass] {
+    box-shadow:
+      inset 0 1px 0.5px rgb(255 255 255 / calc(0.28 * var(--glass-spec))),
+      inset 0 -1px 0.5px rgb(255 255 255 / calc(0.08 * var(--glass-spec)));
+  }
+
+  /* the selected item inside a glass surface: a smaller, brighter drop of glass */
+  .glass-chip {
+    background: radial-gradient(120% 90% at 50% -20%, rgb(255 255 255 / 0.22), transparent 70%), rgb(255 255 255 / 0.1);
+    box-shadow:
+      inset 0 1px 0.5px rgb(255 255 255 / calc(0.25 + 0.3 * var(--glass-spec))),
+      inset 0 -1px 0.5px rgb(255 255 255 / 0.08),
+      inset 0 0 0 1px rgb(255 255 255 / 0.1),
+      0 4px 14px -4px rgb(0 0 0 / 0.45);
+  }
+
+  /* Settings → Appearance → Solid: no transparency anywhere */
+  :root[data-glass='solid'] .glass,
+  :root[data-glass='solid'] .glass-strong {
+    background: rgb(28 28 35);
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  :root[data-glass='solid'] .glass-strong {
+    background: rgb(24 24 30);
+  }
+}
+
+/* the editor's ambient light: a heavily blurred copy of the chosen background, so glass has colour to bend */
+.ambient {
+  position: absolute;
+  inset: -10%;
+  filter: blur(110px) saturate(1.5);
+  opacity: 0.3;
+  transform: translateZ(0);
+  pointer-events: none;
+  transition: background 0.6s;
+}
+
+/* Dynamic Island */
+@keyframes island-in {
+  from {
+    transform: scale(0.6, 0.4);
+    opacity: 0;
+  }
+}
+.island {
+  transition:
+    width 0.42s cubic-bezier(0.32, 1.4, 0.5, 1),
+    height 0.42s cubic-bezier(0.32, 1.4, 0.5, 1),
+    border-radius 0.42s cubic-bezier(0.32, 1.4, 0.5, 1);
+  animation: island-in 0.45s cubic-bezier(0.32, 1.4, 0.5, 1);
+  transform-origin: top center;
+}
+@keyframes countdown-pop {
+  from {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+.countdown-pop {
+  animation: countdown-pop 0.35s cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+
+@layer components {
+  /* a quieter glass for cards inside a glass window */
+  .glass-card {
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.065), rgb(255 255 255 / 0.03));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.1),
+      0 0 0 1px rgb(255 255 255 / 0.07),
+      0 10px 30px -18px rgb(0 0 0 / 0.6);
+  }
+}
+
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.eq-bar {
+  animation: eq 1s ease-in-out infinite;
+}
+
+/* step transitions (welcome window) */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-fade-in {
+  animation: fade-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* ---------------------------------------------------------------------------
+   Light appearance (Settings → Appearance → Theme, or the system setting).
+   The UI is written dark-first: ink-100 is the strongest text, ink-950 the deepest background,
+   `white/x` tints lift surfaces and `black/x` sinks wells. In light mode the ink scale runs the
+   other way and white/black swap, so every one of those keeps its meaning. Colours that must stay
+   literal (text on a coloured button, labels over a photo) use #fff / #000 directly.
+   --------------------------------------------------------------------------- */
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --color-ink-950: #f3f3f6;
+  --color-ink-900: #fbfbfd;
+  --color-ink-850: #f6f6f9;
+  --color-ink-800: #eeeef2;
+  --color-ink-700: #e2e2e8;
+  --color-ink-600: #d3d3db;
+  --color-ink-500: #a3a3ae;
+  --color-ink-400: #74747f;
+  --color-ink-300: #575762;
+  --color-ink-200: #383842;
+  --color-ink-100: #15151b;
+  --color-white: #121218;
+  --color-black: #ffffff;
+  --color-brand-300: #5a45f5;
+  --glass-rgb: 248 248 251;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@layer components {
+  :root[data-theme='light'] .glass,
+  :root[data-theme='light'] .glass-strong {
+    --a: max(calc(var(--glass-tint-a) + 0.22), var(--glass-min-a));
+    text-shadow: none;
+    box-shadow:
+      inset 0 1px 0.5px rgb(255 255 255 / calc(0.7 * var(--glass-spec))),
+      inset 0 0 0 1px rgb(0 0 0 / 0.07),
+      inset 0 10px 24px -14px rgb(255 255 255 / calc(0.5 * var(--glass-spec))),
+      0 22px 50px -20px rgb(20 20 40 / 0.28),
+      0 2px 6px rgb(20 20 40 / 0.08);
+  }
+  :root[data-theme='light'] .glass-strong {
+    --a: max(calc(var(--glass-tint-a) + 0.45), var(--glass-min-a));
+  }
+  :root[data-theme='light'] .glass[data-native-glass],
+  :root[data-theme='light'] .glass-strong[data-native-glass] {
+    background:
+      radial-gradient(130% 70% at 30% -10%, rgb(255 255 255 / calc(0.3 * var(--glass-spec))), transparent 62%),
+      rgb(255 255 255 / calc(var(--glass-tint-a) * 0.35));
+  }
+  :root[data-theme='light'] .glass-chip {
+    background: rgb(255 255 255 / 0.95);
+    box-shadow:
+      inset 0 0 0 1px rgb(0 0 0 / 0.06),
+      0 1px 2px rgb(20 20 40 / 0.1),
+      0 4px 12px -4px rgb(20 20 40 / 0.18);
+  }
+  :root[data-theme='light'] .glass-card {
+    background: rgb(255 255 255 / 0.72);
+    box-shadow:
+      0 0 0 1px rgb(0 0 0 / 0.06),
+      0 8px 24px -16px rgb(20 20 40 / 0.25);
+  }
+  :root[data-theme='light'][data-glass='solid'] .glass,
+  :root[data-theme='light'][data-glass='solid'] .glass-strong {
+    background: rgb(250 250 252);
+  }
+  :root[data-theme='light'] .range::-webkit-slider-runnable-track {
+    background: linear-gradient(
+      to right,
+      var(--color-brand-500) 0%,
+      var(--color-brand-500) var(--fill, 0%),
+      rgb(0 0 0 / 0.12) var(--fill, 0%),
+      rgb(0 0 0 / 0.12) 100%
+    );
+  }
+  :root[data-theme='light'] .range::-webkit-slider-thumb {
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+  }
+  :root[data-theme='light'] .ambient {
+    opacity: 0.16;
+  }
+}

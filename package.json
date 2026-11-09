@@ -1,0 +1,57 @@
+{
+  "name": "toom",
+  "productName": "Toom",
+  "version": "0.3.0",
+  "description": "Toom — screen recorder and editor with automatic zoom, smooth cursor and beautiful backgrounds.",
+  "main": "./out/main/index.js",
+  "author": "Pandascrow Technologies",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "test": "vitest run",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "postinstall": "node node_modules/electron/install.js && electron-builder install-app-deps && node scripts/brand-electron.mjs",
+    "test:pipeline": "node test/pipeline/run.mjs",
+    "test:ui": "node test/ui/record-demo.mjs && node test/ui/run.mjs"
+  },
+  "optionalDependencies": {
+    "electron-liquid-glass": "^1.1.1",
+    "uiohook-napi": "^1.5.5"
+  },
+  "devDependencies": {
+    "@hugeicons/core-free-icons": "^4.4.0",
+    "@hugeicons/react": "^1.1.10",
+    "@huggingface/transformers": "^4.3.2",
+    "@mediapipe/tasks-vision": "^1.2.2",
+    "@tailwindcss/vite": "^4.3.5",
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "clsx": "^2.1.1",
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^6.0.0",
+    "idb-keyval": "^6.3.0",
+    "mediabunny": "^1.65.2",
+    "prettier": "^3.9.10",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwindcss": "^4.3.5",
+    "tesseract.js": "^7.0.0",
+    "tesseract.js-core": "^6.1.2",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  }
+}

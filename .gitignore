@@ -1,0 +1,14 @@
+node_modules
+out
+dist
+*.log
+.DS_Store
+test/pipeline/dist
+test/pipeline/data
+test/ui/dist
+test/ui/data
+test/ui/shots
+*.tsbuildinfo
+.env
+test/ui/dist-account
+test/ui/dist-captions
