@@ -43,8 +43,10 @@ window.renderAll = async () => {
     ),
     clicks: [{ t: 2.0, x: 0.42, y: 0.38, button: 'left' }]
   }
-  const W = 960
-  const H = 540
+  // ?scale=2 renders at 1920×1080 (the website's feature images)
+  const scale = Number(new URLSearchParams(location.search).get('scale') ?? 1) || 1
+  const W = 960 * scale
+  const H = 540 * scale
   const out: Record<string, string> = {}
   const words = 'So here is our payments dashboard. Let me open the invoice page and send it.'
     .split(' ')

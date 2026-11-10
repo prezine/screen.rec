@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Pause, Play, Square, Trash } from '@renderer/lib/icons'
+import { BrandMark } from '@renderer/lib/brand'
 import type { RecState } from '@shared/types'
 import { api } from '@renderer/lib/api'
 import { formatTime } from '@renderer/engine/math'
@@ -45,6 +46,7 @@ export function Toolbar(): React.JSX.Element {
   return (
     <div className="flex h-full items-center justify-center">
       <div className="drag flex h-12 items-center gap-1 rounded-2xl bg-ink-900/90 pr-1.5 pl-4 shadow-[0_10px_30px_rgba(0,0,0,0.45)] ring-1 ring-white/10 backdrop-blur-xl">
+        <BrandMark size={16} tone="white" className="mr-1 shrink-0 opacity-90" />
         <span className={cx('mr-1 size-2.5 rounded-full', paused ? 'bg-amber-400' : 'animate-pulse-dot bg-red-500')} />
         {countdown ? (
           <span className="mr-2 text-sm font-semibold">Recording in {state.countdown ?? 0}…</span>

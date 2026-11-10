@@ -146,6 +146,7 @@ src/
 - **Offline**: Pro keeps working for up to 7 days without a connection, using a server-signed entitlement that the app verifies with `TOOM_ENTITLEMENT_PUBLIC_KEY`.
 - **Auto-updates** use `electron-updater` against the `TOOM_UPDATE_URL` feed. Toom checks on launch and every 4 hours, downloads in the background and installs when the app restarts. You can also use *Check for Updates…* (app menu) or Settings → General → Updates.
   - To publish a release: bump `version`, run `npm run dist:mac` / `dist:win` with `TOOM_UPDATE_URL` set, and upload `dist/latest*.yml` plus the installers and zips to that URL.
+  - **With GitHub Releases** (what the website links to): set `TOOM_UPDATE_URL=https://github.com/prezine/toom-software/releases/latest/download`, then attach everything in `dist/` (`Toom-arm64.dmg`, `Toom-x64.dmg`, the zips, `Toom-Setup-x64.exe`, `Toom-Setup-arm64.exe`, `latest-mac.yml`, `latest.yml`, blockmaps) to one published (not draft) release. The installers' names have no version, so the website's links always get the newest. The repo (or a separate public releases repo) must be public for visitors to download.
   - **macOS only installs updates for signed and notarized apps.** Unsigned builds show a "download the latest version" message instead. Windows (NSIS) updates work unsigned, although SmartScreen will warn about the installer.
 - Build settings go in `.env` (see `.env.example`): `TOOM_API_URL`, `TOOM_ENTITLEMENT_PUBLIC_KEY`, `TOOM_UPDATE_URL`.
 

@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { applyWindowMaterial, materialOptions } from './glass'
 import { openExternalSafely } from './security'
 import { getSettings, updateSettings } from './settings'
+import { accountLoaded, accountReady, isSignedIn } from './account'
 
 const isMac = process.platform === 'darwin'
 
@@ -13,6 +14,25 @@ function load(win: BrowserWindow, route: string): void {
   const devUrl = process.env['ELECTRON_RENDERER_URL']
   if (devUrl) void win.loadURL(`${devUrl}#${route}`)
   else void win.loadFile(join(__dirname, '../renderer/index.html'), { hash: route })
+}
+
+// ---------------------------------------------------------------------------
+// Sign-in gate: Toom needs an account. Everything that opens the app proper (recording bar,
+// library, editor, settings) asks for sign-in first.
+// ---------------------------------------------------------------------------
+
+/**
+ * True when `retry` can't run yet: the stored session is still loading (it runs once it has), or
+ * nobody is signed in (the sign-in window opens instead).
+ */
+function needsSignIn(retry: () => void): boolean {
+  if (!accountLoaded()) {
+    void accountReady().then(retry)
+    return true
+  }
+  if (isSignedIn()) return false
+  showSignIn()
+  return true
 }
 
 /** `idle`: windows that do no work in the background (library, settings, welcome) may be throttled when hidden */
@@ -139,6 +159,7 @@ export function createLauncherWindow(): BrowserWindow {
 }
 
 export function showLauncher(): void {
+  if (needsSignIn(showLauncher)) return
   const win = createLauncherWindow()
   placeLauncher(win)
   const reveal = (): void => {
@@ -172,7 +193,8 @@ export function getLibraryWindow(): BrowserWindow | null {
   return alive(library) ? library : null
 }
 
-export function showLibrary(): BrowserWindow {
+export function showLibrary(): BrowserWindow | null {
+  if (needsSignIn(() => void showLibrary())) return null
   if (alive(library)) {
     library.show()
     library.focus()
@@ -202,7 +224,8 @@ export function showLibrary(): BrowserWindow {
 
 let settingsWin: BrowserWindow | null = null
 
-export function showSettings(section = 'general'): BrowserWindow {
+export function showSettings(section = 'general'): BrowserWindow | null {
+  if (needsSignIn(() => void showSettings(section))) return null
   if (alive(settingsWin)) {
     settingsWin.webContents.send('settings:section', section)
     settingsWin.show()
@@ -243,8 +266,10 @@ export function getWelcomeWindow(): BrowserWindow | null {
   return alive(welcomeWin) ? welcomeWin : null
 }
 
-export function showOnboarding(): BrowserWindow {
+export function showOnboarding(route = '/welcome'): BrowserWindow {
   if (alive(welcomeWin)) {
+    // already open (onboarding or sign-in): switch to what's asked, unless onboarding is under way
+    if (route !== '/welcome' && !welcomeWin.webContents.getURL().endsWith(`#${route}`)) load(welcomeWin, route)
     welcomeWin.show()
     welcomeWin.focus()
     return welcomeWin
@@ -269,12 +294,24 @@ export function showOnboarding(): BrowserWindow {
   hardenLinks(welcomeWin)
   welcomeWin.once('ready-to-show', () => welcomeWin?.show())
   welcomeWin.on('closed', () => (welcomeWin = null))
-  load(welcomeWin, '/welcome')
+  load(welcomeWin, route)
   return welcomeWin
+}
+
+/** Ask for sign-in: first-run onboarding (which starts with it), or just the sign-in screen. */
+export function showSignIn(): BrowserWindow {
+  return getSettings().general.onboarded ? showOnboarding('/welcome/signin') : showOnboarding()
+}
+
+/** Signed out: close everything that needs an account (an ongoing recording finishes first). */
+export function closeAccountWindows(): void {
+  hideLauncher()
+  for (const w of [library, settingsWin, ...editorWindows.values()]) if (alive(w ?? null)) w!.close()
 }
 
 /** Bring forward whichever window can show account changes (welcome, else Settings → Account). */
 export function focusAccountUi(): void {
+  if (accountLoaded() && !isSignedIn()) return void showSignIn()
   if (alive(welcomeWin)) {
     if (welcomeWin.isMinimized()) welcomeWin.restore()
     welcomeWin.show()
@@ -465,7 +502,8 @@ export function hasAppWindows(): boolean {
   return [...editorWindows.values(), library, settingsWin, welcomeWin].some((w) => alive(w ?? null) && w!.isVisible())
 }
 
-export function openEditorWindow(projectId: string): BrowserWindow {
+export function openEditorWindow(projectId: string): BrowserWindow | null {
+  if (needsSignIn(() => void openEditorWindow(projectId))) return null
   // the recording bar makes way for the editor (New Recording brings it back)
   hideLauncher()
   const existing = editorWindows.get(projectId)

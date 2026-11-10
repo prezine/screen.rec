@@ -19,6 +19,9 @@ const publish = (a: Server | null): void => {
 }
 const emit = (e: AccountEvent): void => events.forEach((l) => l(e))
 
+// like src/main/device.ts: one hashed hardware ID for this "computer"
+const DEVICE_ID = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('')
+
 async function call<T>(
   method: string,
   path: string,
@@ -26,7 +29,11 @@ async function call<T>(
 ): Promise<{ ok: true; data: T } | { ok: false; code: string; message: string }> {
   const res = await fetch(`/api${path}`, {
     method,
-    headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    headers: {
+      'content-type': 'application/json',
+      'x-toom-device-id': DEVICE_ID,
+      ...(token ? { authorization: `Bearer ${token}` } : {})
+    },
     body: body === undefined ? undefined : JSON.stringify(body)
   })
   const data = await res.json().catch(() => null)
@@ -64,6 +71,7 @@ export const accountApi = {
   get: async () => state,
   refresh,
   apiUrl: async () => '/api',
+  showSignIn: async () => undefined,
   signup: (a: object) => signedIn(call('POST', '/v1/auth/signup', a)),
   login: (a: object) => signedIn(call('POST', '/v1/auth/login', a)),
   emailStart: async (email: string, purpose = 'login'): Promise<AccountResult> => {

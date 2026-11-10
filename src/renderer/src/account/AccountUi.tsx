@@ -10,7 +10,9 @@ import {
   type AccountResult,
   type AccountState,
   type PromoInfo,
-  type PublicPlan
+  type PublicPlan,
+  formatLicenseKey,
+  isLicenseKeyShaped
 } from '@shared/account'
 
 // ---------------------------------------------------------------------------------------------
@@ -372,6 +374,8 @@ export function PlanPicker({
   const month = plans.find((p) => p.interval === 'month')
   const year = plans.find((p) => p.interval === 'year')
   const chosen = (interval === 'year' ? year : month) ?? year ?? month
+  // no second free trial for this person or computer: the server checks out without one
+  const trialDays = account.trialEligible === false ? 0 : (chosen?.trialDays ?? 0)
   const discountPrice = chosen && discount?.prices?.[chosen.id]
   const checkout = (id: PublicPlan['id']): Promise<unknown> =>
     run(() => api.account.checkout(id, discount?.plans.includes(id) ? discount.code : undefined))
@@ -495,7 +499,7 @@ export function PlanPicker({
               onClick={() => chosen && void checkout(chosen.id)}
             >
               {busy && <Spinner />}
-              {chosen?.trialDays ? `Start ${chosen.trialDays}-day free trial` : 'Upgrade to Pro'}
+              {trialDays ? `Start ${trialDays}-day free trial` : 'Upgrade to Pro'}
             </Button>
           )}
         </div>
@@ -505,7 +509,7 @@ export function PlanPicker({
           Upgrades aren’t available right now{account.offline ? ' — you’re offline' : ''}.
         </p>
       )}
-      {chosen?.trialDays && !pro && enabled ? (
+      {trialDays && !pro && enabled ? (
         <p className="text-center text-[11.5px] text-ink-300">
           Checkout opens in your browser, secured by Bachs. Cancel any time before the trial ends and you won’t be
           charged.
@@ -537,7 +541,7 @@ const forHowLong = (days: number | null): string =>
         : `for ${days} days`
 
 /**
- * "Have a code?": a free-Pro code unlocks Pro straight away; a discount code lowers the Pro price
+ * "Have a code or licence key?": a free-Pro code unlocks Pro straight away; a discount code lowers the Pro price
  * at checkout.
  */
 export function PromoCodeField({
@@ -562,6 +566,13 @@ export function PromoCodeField({
     setError('')
     setFound(null)
     const r = await api.account.promoCheck(code.trim())
+    if (!r.ok && isLicenseKeyShaped(code)) {
+      // not a promo code, but shaped like a licence key: activate it
+      const a = await api.account.licenseActivate(code.trim())
+      setBusy(false)
+      if (!a.ok) setError(a.message)
+      return // success: the account turns Pro and the screen moves on by itself
+    }
     setBusy(false)
     if (!r.ok) return setError(r.message)
     if (r.promo.kind === 'discount') onDiscount(r.promo)
@@ -592,7 +603,7 @@ export function PromoCodeField({
     return (
       <p className="text-center">
         <button className="no-drag text-[12px] text-brand-300 hover:underline" onClick={() => setOpen(true)}>
-          Have a code?
+          Have a code or licence key?
         </button>
       </p>
     )
@@ -617,13 +628,17 @@ export function PromoCodeField({
       ) : (
         <form onSubmit={(e) => void apply(e)} className="flex items-end gap-2">
           <TextInput
-            label="Promo code"
+            label="Promo code or licence key"
             className="flex-1"
-            placeholder="e.g. FRIENDS30"
+            placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
             autoCapitalize="characters"
             spellCheck={false}
             value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            onChange={(e) => {
+              const v = e.target.value
+              // a full key gets its dashes; older promo codes are left as typed
+              setCode(isLicenseKeyShaped(v) ? formatLicenseKey(v) : v.toUpperCase())
+            }}
           />
           <Button type="submit" className="h-10" disabled={busy || !code.trim()}>
             {busy && <Spinner />} Apply

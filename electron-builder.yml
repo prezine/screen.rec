@@ -32,6 +32,7 @@ asarUnpack:
   - node_modules/uiohook-napi/**
   - node_modules/electron-liquid-glass/**
 mac:
+  icon: build/icon.png
   category: public.app-category.video
   target:
     # zip is what auto-update downloads on macOS
@@ -51,7 +52,12 @@ win:
   target:
     - target: nsis
       arch: [x64, arm64]
+# Installers get version-free names so the website can link to
+# https://github.com/prezine/toom-software/releases/latest/download/<name> and always get the newest.
+dmg:
+  artifactName: Toom-${arch}.${ext}
 nsis:
+  artifactName: Toom-Setup-${arch}.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
 extraResources:

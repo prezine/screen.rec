@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { AppIcon } from '@renderer/lib/brand'
 import { Check, ChevronDown, FolderOpen, Redo2, Sparkles, Star, Trash, Undo2, Upload, X } from '@renderer/lib/icons'
 import type { StylePreset } from '@shared/types'
 import { usePresets } from '@renderer/lib/presets'
@@ -164,6 +165,7 @@ export function TitleBar(p: Props): React.JSX.Element {
       style={{ paddingLeft: p.isMac ? 84 : 12 }}
     >
       <div className="flex items-center gap-1">
+        <AppIcon size={20} tone="white" className="mr-1" />
         <IconButton label="Show in Finder" onClick={p.onReveal}>
           <FolderOpen size={17} />
         </IconButton>

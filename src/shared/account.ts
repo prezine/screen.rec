@@ -49,6 +49,44 @@ export interface AccountGrant {
   endsAt: string | null
 }
 
+/** A computer using a licence key (each key has a few seats) */
+export interface LicenseDevice {
+  /** the computer's hashed hardware ID */
+  id: string
+  name: string | null
+  activatedAt: string
+  lastSeen: string
+  thisComputer: boolean
+}
+
+/**
+ * The licence key giving this account Pro. Each period of Pro has its own key: a subscription gets a
+ * new one for every billing period, a promo code or gift gets one for as long as it lasts.
+ */
+export interface AccountLicense {
+  /** XXXXX-XXXXX-XXXXX-XXXXX-XXXXX */
+  key: string
+  source: 'subscription' | 'promo' | 'admin'
+  startsAt: string
+  /** null = never */
+  expiresAt: string | null
+  maxDevices: number
+  devices: LicenseDevice[]
+  /** why this computer isn't using the key (every seat taken), or null */
+  problem: string | null
+}
+
+export const LICENSE_KEY_LENGTH = 25
+
+/** Format what someone is typing as XXXXX-XXXXX-…, keeping only letters and digits. */
+export function formatLicenseKey(input: string): string {
+  const raw = input.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, LICENSE_KEY_LENGTH)
+  return raw.replace(/(.{5})(?=.)/g, '$1-')
+}
+
+export const isLicenseKeyShaped = (input: string): boolean =>
+  input.toUpperCase().replace(/[^0-9A-Z]/g, '').length === LICENSE_KEY_LENGTH
+
 /** What a promo code does (from the server, before using it) */
 export interface PromoInfo {
   code: string
@@ -68,6 +106,9 @@ export interface AccountState {
   plan: PlanTier
   subscription: AccountSubscription | null
   grant?: AccountGrant | null
+  license?: AccountLicense | null
+  /** false when this person or computer has already had a free trial (checkout then has none) */
+  trialEligible?: boolean
   /** couldn't reach the server; showing what we knew last */
   offline: boolean
   /** waiting for a checkout started from this app to complete */
@@ -79,6 +120,7 @@ export const SIGNED_OUT: AccountState = {
   plan: 'free',
   subscription: null,
   grant: null,
+  license: null,
   offline: false,
   awaitingPayment: false
 }

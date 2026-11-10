@@ -10,6 +10,7 @@ import { AreaSelect } from './area/AreaSelect'
 import { SettingsWindow, type SectionId } from './settings/SettingsWindow'
 import { useAppearance } from './lib/appearance'
 import { Onboarding } from './onboarding/Onboarding'
+import { RequireAccount } from './account/RequireAccount'
 
 function useHash(): string {
   const [hash, setHash] = useState(() => window.location.hash.replace(/^#/, '') || '/')
@@ -36,14 +37,28 @@ function App(): React.JSX.Element {
   if (route.startsWith('/toolbar')) return <Toolbar />
   if (route.startsWith('/island')) return <Island />
   if (route.startsWith('/launcher')) return <Launcher />
-  if (route.startsWith('/welcome')) return <Onboarding />
+  if (route.startsWith('/welcome')) return <Onboarding signInOnly={route.startsWith('/welcome/signin')} />
   const area = /^\/area\/([\w-]+)/.exec(route)
   if (area) return <AreaSelect displayId={area[1]} />
   const settings = /^\/settings(?:\/(\w+))?/.exec(route)
-  if (settings) return <SettingsWindow initial={(settings[1] as SectionId) || 'general'} />
+  if (settings)
+    return (
+      <RequireAccount>
+        <SettingsWindow initial={(settings[1] as SectionId) || 'general'} />
+      </RequireAccount>
+    )
   const editor = /^\/editor\/([\w-]+)/.exec(route)
-  if (editor) return <Editor projectId={editor[1]} />
-  return <Library />
+  if (editor)
+    return (
+      <RequireAccount>
+        <Editor projectId={editor[1]} />
+      </RequireAccount>
+    )
+  return (
+    <RequireAccount>
+      <Library />
+    </RequireAccount>
+  )
 }
 
 void window.api

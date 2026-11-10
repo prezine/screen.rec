@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { AppIcon } from '@renderer/lib/brand'
 import {
   Brush,
   Clapperboard,
@@ -140,7 +141,8 @@ export function SettingsWindow({ initial }: { initial: SectionId }): React.JSX.E
         />
       )}
       {/* toolbar: icon tabs across the top */}
-      <header className="drag shrink-0 border-b border-white/[0.08] bg-white/[0.02] pt-2.5">
+      <header className="drag relative shrink-0 border-b border-white/[0.08] bg-white/[0.02] pt-2.5">
+        <AppIcon size={19} tone="white" className={cx('absolute top-2.5', isMac ? 'left-[84px]' : 'left-5')} />
         <div className="h-[18px] text-center text-[13px] font-semibold text-ink-100">
           {SECTIONS.find((s) => s.id === section)!.label}
         </div>

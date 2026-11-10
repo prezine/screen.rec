@@ -82,6 +82,8 @@ const api = {
   /** Toom account, plan and billing */
   account: {
     get: (): Promise<AccountState> => ipcRenderer.invoke('account:get'),
+    /** open the sign-in screen (Toom needs an account) */
+    showSignIn: (): Promise<void> => ipcRenderer.invoke('account:showSignIn'),
     refresh: (): Promise<AccountState> => ipcRenderer.invoke('account:refresh'),
     apiUrl: (): Promise<string> => ipcRenderer.invoke('account:apiUrl'),
     signup: (a: { email: string; password: string; name?: string }): Promise<AccountResult> =>
@@ -107,6 +109,11 @@ const api = {
     promoCheck: (code: string): Promise<PromoResult> => ipcRenderer.invoke('account:promoCheck', code),
     /** use a free-Pro code */
     promoRedeem: (code: string): Promise<AccountResult> => ipcRenderer.invoke('account:promoRedeem', code),
+    /** activate a licence key (XXXXX-XXXXX-XXXXX-XXXXX-XXXXX) or free-Pro code on this computer */
+    licenseActivate: (key: string): Promise<AccountResult> => ipcRenderer.invoke('account:licenseActivate', key),
+    /** stop using the account's key on one of its computers */
+    licenseDeactivate: (deviceId: string): Promise<AccountResult> =>
+      ipcRenderer.invoke('account:licenseDeactivate', deviceId),
     cancelWaiting: (): Promise<AccountState> => ipcRenderer.invoke('account:cancelWaiting'),
     portal: (): Promise<AccountResult> => ipcRenderer.invoke('account:portal'),
     onChanged: (cb: (s: AccountState) => void) => on('account:changed', cb),

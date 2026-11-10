@@ -1,6 +1,6 @@
-// First-run welcome: account → plan → permissions → ready. Every step can be skipped; Toom
-// works without an account on the Free plan.
-import { AppIcon } from '@renderer/lib/brand'
+// First-run welcome: account → plan → permissions → ready. Toom needs an account, so the account
+// step can't be skipped. `signInOnly` is the same window later on, when someone is signed out.
+import { AppIcon, Wordmark } from '@renderer/lib/brand'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '@renderer/lib/api'
 import { useAccount } from '@renderer/lib/account'
@@ -26,10 +26,13 @@ const STEPS: Step[] = ['welcome', 'account', 'plan', 'permissions', 'ready']
 
 type Perms = { screen: string; camera: string; microphone: string; accessibility: boolean }
 
-export function Onboarding(): React.JSX.Element {
+export function Onboarding({ signInOnly = false }: { signInOnly?: boolean }): React.JSX.Element {
   const account = useAccount()
   const { settings } = useSettings()
-  const [step, setStep] = useState<Step>('welcome')
+  const [step, setStep] = useState<Step>(signInOnly ? 'account' : 'welcome')
+  useEffect(() => {
+    if (signInOnly) setStep('account')
+  }, [signInOnly])
   const [platform, setPlatform] = useState('darwin')
   const [perms, setPerms] = useState<Perms | null>(null)
   const isMac = platform === 'darwin'
@@ -46,15 +49,18 @@ export function Onboarding(): React.JSX.Element {
   // Signing in (here, or through the emailed link) moves on by itself; so does upgrading.
   useEffect(() => {
     return api.account.onEvent((e) => {
-      if (e.type === 'signed-in') setStep((s) => (s === 'account' ? 'plan' : s))
+      // (sign-in only: the app takes over and closes this window)
+      if (e.type === 'signed-in' && !signInOnly) setStep((s) => (s === 'account' ? 'plan' : s))
       if (e.type === 'upgraded') setStep((s) => (s === 'plan' ? 'permissions' : s))
     })
-  }, [])
+  }, [signInOnly])
   useEffect(() => {
     if (step === 'plan' && account?.plan === 'pro') setStep('permissions')
   }, [step, account?.plan])
 
   const next = (): void => {
+    // no way past the account step without signing in
+    if (step === 'account' && !account?.user) return
     let i = STEPS.indexOf(step) + 1
     // already signed in → straight to plans; no account → plans need one, skip them
     if (STEPS[i] === 'account' && account?.user) i++
@@ -112,8 +118,15 @@ export function Onboarding(): React.JSX.Element {
 
           {step === 'account' && (
             <div className="w-full max-w-[380px]">
+              {signInOnly && (
+                <div className="mb-5 flex flex-col items-center text-center">
+                  <AppIcon size={56} />
+                  <h1 className="mt-4 text-[22px] font-semibold tracking-tight">Sign in to Toom</h1>
+                  <p className="mt-1 text-[13px] text-ink-300">You need a Toom account to record and edit.</p>
+                </div>
+              )}
               <div className="glass-card rounded-[22px] p-6">
-                <AuthForm onDone={() => setStep('plan')} />
+                <AuthForm onDone={() => !signInOnly && setStep('plan')} />
               </div>
               <p className="mt-3 text-center text-[11.5px] text-ink-300">
                 Your recordings stay on this computer. The account only holds your plan.
@@ -212,11 +225,7 @@ export function Onboarding(): React.JSX.Element {
               </div>
               <h1 className="mt-5 text-[24px] font-semibold tracking-tight">You’re all set</h1>
               <p className="mt-2 text-[13.5px] leading-relaxed text-ink-300">
-                {account?.plan === 'pro'
-                  ? 'Toom Pro is unlocked. '
-                  : account?.user
-                    ? 'You’re on the Free plan. '
-                    : 'You can sign in any time from Settings → Account. '}
+                {account?.plan === 'pro' ? 'Toom Pro is unlocked. ' : 'You’re on the Free plan. '}
                 Here’s how to start a recording:
               </p>
               <div className="glass-card mt-6 w-full divide-y divide-white/[0.06] rounded-[18px] text-left">
@@ -247,8 +256,12 @@ export function Onboarding(): React.JSX.Element {
       </main>
 
       <footer className="grid h-16 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-t border-white/[0.06] px-6">
-        <div className="justify-self-start">
-          {index > 0 && step !== 'ready' && (
+        <div className="flex items-center gap-3 justify-self-start">
+          <span className="flex items-center gap-1.5" aria-label="Toom">
+            <AppIcon size={19} />
+            <Wordmark height={8} tone="white" />
+          </span>
+          {index > 0 && step !== 'ready' && !signInOnly && (
             <Button variant="ghost" onClick={back}>
               <ChevronLeft size={14} /> Back
             </Button>
@@ -256,7 +269,7 @@ export function Onboarding(): React.JSX.Element {
         </div>
         {/* progress, centered between Back and the next action */}
         <div
-          className="flex items-center gap-1.5"
+          className={cx('flex items-center gap-1.5', signInOnly && 'invisible')}
           role="progressbar"
           aria-valuemin={1}
           aria-valuemax={STEPS.length}
@@ -274,9 +287,9 @@ export function Onboarding(): React.JSX.Element {
           ))}
         </div>
         <div className="flex gap-2 justify-self-end">
-          {step === 'account' && (
-            <Button variant="ghost" onClick={next}>
-              Skip for now
+          {step === 'account' && signInOnly && (
+            <Button variant="ghost" onClick={() => void api.app.quit()}>
+              Quit Toom
             </Button>
           )}
           {step === 'welcome' && (

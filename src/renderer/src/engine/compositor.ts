@@ -188,6 +188,23 @@ export function maskAlpha(m: MaskSegment, t: number): number {
 }
 
 let maskScratch: OffscreenCanvas | null = null
+/** reused full-frame layer for motion-blur samples of a recording that has privacy masks */
+let blurLayer: OffscreenCanvas | null = null
+
+/** One camera-blur sample, drawn opaque (with its masks) into a frame-sized layer. */
+function drawSampleLayer(ctx: Ctx, tr: ZoomTr, scene: Scene, input: FrameInputs, rect: Rect, k: number): OffscreenCanvas {
+  const { width, height } = ctx.canvas
+  if (!blurLayer || blurLayer.width !== width || blurLayer.height !== height) blurLayer = new OffscreenCanvas(width, height)
+  const lc = blurLayer.getContext('2d')!
+  lc.setTransform(1, 0, 0, 1, 0, 0)
+  lc.clearRect(0, 0, width, height)
+  lc.imageSmoothingQuality = ctx.imageSmoothingQuality
+  lc.setTransform(ctx.getTransform())
+  lc.translate(tr.tx, tr.ty)
+  lc.scale(tr.s, tr.s)
+  drawContent(lc, scene, input, rect, k, false)
+  return blurLayer
+}
 
 function sourceSize(input: FrameInputs): { w: number; h: number } | null {
   if (input.screenSize) return input.screenSize
@@ -607,8 +624,20 @@ export function renderFrame(ctx: Ctx, W: number, H: number, scene: Scene, input:
       }
     }
     samples.forEach((tr, i) => {
+      const alpha = g.screenAlpha * (i === 0 ? 1 : 1 / (i + 1))
+      if (i > 0 && edit.masks.length) {
+        // A see-through sample would let a mask's partial alpha leak the text under it (screen at α,
+        // then the mask at α leaves α(1−α) of the original). Draw it opaque, masks and all, then blend.
+        blurLayer = drawSampleLayer(ctx, tr, scene, input, rect, k)
+        ctx.save()
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.globalAlpha = alpha
+        ctx.drawImage(blurLayer, 0, 0)
+        ctx.restore()
+        return
+      }
       ctx.save()
-      ctx.globalAlpha = g.screenAlpha * (i === 0 ? 1 : 1 / (i + 1))
+      ctx.globalAlpha = alpha
       ctx.translate(tr.tx, tr.ty)
       ctx.scale(tr.s, tr.s)
       drawContent(ctx, scene, input, rect, k, i === 0)

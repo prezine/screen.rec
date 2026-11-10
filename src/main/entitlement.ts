@@ -8,6 +8,11 @@ export interface Entitlement {
   sub: string
   email?: string
   plan: PlanTier
+  /** the licence key behind a Pro entitlement, and when it expires (seconds; null = never) */
+  lic?: string
+  licExp?: number | null
+  /** the computer the key's seat belongs to (hashed hardware ID) */
+  dev?: string
   iat?: number
   exp: number
 }
@@ -32,8 +37,12 @@ export function entitledPlan(
   token: string | null | undefined,
   key: KeyObject | null,
   userId: string,
-  now = Date.now()
+  now = Date.now(),
+  /** this computer's ID: a Pro entitlement issued to another computer's seat doesn't count here */
+  deviceId?: string | null
 ): PlanTier {
   const e = readEntitlement(token, key)
-  return e && e.sub === userId && e.exp * 1000 > now ? e.plan : 'free'
+  if (!e || e.sub !== userId || e.exp * 1000 <= now) return 'free'
+  if (e.plan === 'pro' && e.dev && deviceId && e.dev !== deviceId) return 'free'
+  return e.plan
 }

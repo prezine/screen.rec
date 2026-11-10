@@ -1,7 +1,8 @@
 import { app, Menu, nativeImage, Tray } from 'electron'
 import { join } from 'node:path'
 import { isRecording, requestStop } from './recording'
-import { showLauncher, showLibrary, showSettings } from './windows'
+import { showLauncher, showLibrary, showSettings, showSignIn } from './windows'
+import { accountLoaded, isSignedIn } from './account'
 import { getSettings } from './settings'
 import { installUpdate, updateStatus } from './updater'
 
@@ -19,6 +20,17 @@ export function buildTrayMenu(): void {
   if (!tray) return
   const s = getSettings().shortcuts
   const recording = isRecording()
+  // signed out: the only way in is signing in
+  if (accountLoaded() && !isSignedIn() && !recording) {
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        { label: 'Sign in to Toom…', click: () => showSignIn() },
+        { type: 'separator' },
+        { label: 'Quit Toom', accelerator: 'CommandOrControl+Q', click: () => app.quit() }
+      ])
+    )
+    return
+  }
   tray.setContextMenu(
     Menu.buildFromTemplate([
       recording

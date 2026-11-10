@@ -8,7 +8,7 @@ function signEntitlement(payload: Record<string, unknown>, privateKeyPem: string
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url')
   return `${body}.${sign(null, Buffer.from(body), createPrivateKey(privateKeyPem)).toString('base64url')}`
 }
-import { clampExport, LIMITS, priceLabel } from '@shared/account'
+import { clampExport, formatLicenseKey, isLicenseKeyShaped, LIMITS, priceLabel } from '@shared/account'
 
 const pair = (): { publicKey: string; privateKey: string } =>
   generateKeyPairSync('ed25519', {
@@ -36,6 +36,29 @@ describe('entitlements (server-signed, checked offline)', () => {
     expect(readEntitlement(token, createPublicKey(pair().publicKey))).toBeNull()
     expect(readEntitlement('garbage', key)).toBeNull()
     expect(readEntitlement(token, null)).toBeNull()
+  })
+})
+
+describe('licence keys', () => {
+  const { publicKey, privateKey } = pair()
+  const now = Math.floor(Date.now() / 1000)
+  const key = createPublicKey(publicKey)
+  const mine = 'a'.repeat(64)
+  const token = signEntitlement(
+    { sub: 'u1', plan: 'pro', lic: 'ABCDE-FGHJK-LMNPQ-RSTUV-WXYZ2', licExp: now + 86400, dev: mine, iat: now, exp: now + 3600 },
+    privateKey
+  )
+  it('offline Pro only counts on the computer holding the key’s seat', () => {
+    expect(readEntitlement(token, key)?.lic).toBe('ABCDE-FGHJK-LMNPQ-RSTUV-WXYZ2')
+    expect(entitledPlan(token, key, 'u1', Date.now(), mine)).toBe('pro')
+    expect(entitledPlan(token, key, 'u1', Date.now(), 'b'.repeat(64))).toBe('free')
+    expect(entitledPlan(token, key, 'u1', (now + 3601) * 1000, mine)).toBe('free')
+  })
+  it('formats keys as they’re pasted', () => {
+    expect(formatLicenseKey('abcde fghjk lmnpq rstuv wxyz2')).toBe('ABCDE-FGHJK-LMNPQ-RSTUV-WXYZ2')
+    expect(formatLicenseKey('abcdefg')).toBe('ABCDE-FG')
+    expect(isLicenseKeyShaped('ABCDE-FGHJK-LMNPQ-RSTUV-WXYZ2')).toBe(true)
+    expect(isLicenseKeyShaped('FRIENDS30')).toBe(false)
   })
 })
 

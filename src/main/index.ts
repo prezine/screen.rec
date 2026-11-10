@@ -43,7 +43,17 @@ import { registerGlassIpc } from './glass'
 import { registerSoundIpc } from './sounds'
 import { buildAppMenu, registerMenuIpc } from './menu'
 import { registerModelIpc } from './models'
-import { findDeepLink, handleDeepLink, registerAccountIpc, registerDeepLinks, setAccountFocus } from './account'
+import {
+  accountLoaded,
+  accountReady,
+  findDeepLink,
+  handleDeepLink,
+  isSignedIn,
+  onAccountChanged,
+  registerAccountIpc,
+  registerDeepLinks,
+  setAccountFocus
+} from './account'
 import { initUpdater, onUpdateStatus } from './updater'
 import { hardenApp, isAppUrl } from './security'
 import { registerStorageIpc } from './storage'
@@ -67,7 +77,9 @@ import {
   showSettings,
   showOnboarding,
   getWelcomeWindow,
-  focusAccountUi
+  focusAccountUi,
+  closeAccountWindows,
+  showSignIn
 } from './windows'
 
 const isMac = process.platform === 'darwin'
@@ -348,7 +360,9 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('onboarding:show', () => void showOnboarding())
+  ipcMain.handle('account:showSignIn', () => void showSignIn())
   ipcMain.handle('onboarding:finish', () => {
+    if (!isSignedIn()) return void showSignIn()
     updateSettings({ general: { onboarded: true } })
     getWelcomeWindow()?.close()
     showLauncher()
@@ -440,9 +454,35 @@ app.whenReady().then(() => {
 
   // warm up the launcher so it appears instantly
   createLauncherWindow()
-  if (!getSettings().general.onboarded) showOnboarding()
-  else if (getSettings().general.showLauncherOnStart) showLauncher()
-  else showLibrary()
+  // Toom needs an account: first run starts with onboarding (which signs in), later runs with
+  // sign-in when signed out
+  void accountReady().then(() => {
+    if (!getSettings().general.onboarded) showOnboarding()
+    else if (!isSignedIn()) showSignIn()
+    else if (getSettings().general.showLauncherOnStart) showLauncher()
+    else showLibrary()
+  })
+
+  // signing out closes the app; signing in from the sign-in screen opens it
+  let wasSignedIn: boolean | null = null
+  onAccountChanged(() => {
+    if (!accountLoaded()) return
+    const now = isSignedIn()
+    if (wasSignedIn === null || now === wasSignedIn) {
+      if (wasSignedIn === null) buildTrayMenu()
+      return void (wasSignedIn = now)
+    }
+    wasSignedIn = now
+    if (!now) {
+      closeAccountWindows()
+      showSignIn()
+    } else if (getSettings().general.onboarded && getWelcomeWindow()) {
+      getWelcomeWindow()!.close()
+      if (getSettings().general.showLauncherOnStart) showLauncher()
+      else showLibrary()
+    }
+    buildTrayMenu()
+  })
 
   app.on('activate', () => {
     const anyVisible = BrowserWindow.getAllWindows().some((w) => w.isVisible())

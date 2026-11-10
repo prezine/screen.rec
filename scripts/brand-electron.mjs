@@ -1,22 +1,28 @@
 // macOS dev only: the menu bar, Dock and ⌘-Tab read the app name from the Electron bundle's
-// Info.plist, so `npm run dev` shows "Electron". Rename the dev bundle to "toom" and re-sign it
+// Info.plist, so `npm run dev` shows "Electron". Rename the dev bundle to "Toom" and re-sign it
 // ad hoc. Packaged builds don't need this (electron-builder sets the name).
 //
 // Note: re-signing gives the dev app a new identity, so macOS asks once more for
 // Screen Recording / Accessibility permission. Skip with TOOM_SKIP_BRAND=1.
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, existsSync, readFileSync } from 'node:fs'
+import { copyFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-const NAME = 'toom'
+const NAME = 'Toom'
 if (process.platform !== 'darwin' || process.env.TOOM_SKIP_BRAND) process.exit(0)
 
 const app = join('node_modules', 'electron', 'dist', 'Electron.app')
 const plist = join(app, 'Contents', 'Info.plist')
 if (!existsSync(plist)) process.exit(0)
 
-const current = readFileSync(plist, 'utf8')
-if (current.includes(`<string>${NAME}</string>`)) process.exit(0) // already branded
+const bundleValue = (key) => {
+  try {
+    return execFileSync('plutil', ['-extract', key, 'raw', plist], { encoding: 'utf8' }).trim()
+  } catch {
+    return null
+  }
+}
+if (bundleValue('CFBundleName') === NAME && bundleValue('CFBundleDisplayName') === NAME) process.exit(0)
 
 const backup = plist + '.orig'
 copyFileSync(plist, backup)

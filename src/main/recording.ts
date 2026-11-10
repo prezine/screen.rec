@@ -27,11 +27,12 @@ import {
   hideLauncher,
   openEditorWindow,
   showLauncher,
-  showLibrary
+  showLibrary,
+  showSignIn
 } from './windows'
 import { getSettings } from './settings'
 import { buildTrayMenu } from './tray'
-import { currentLimits } from './account'
+import { currentLimits, isSignedIn } from './account'
 
 interface Session {
   meta: ProjectMeta
@@ -123,6 +124,12 @@ function endSession(): void {
 export function registerRecordingIpc(): void {
   ipcMain.handle('rec:prepare', async (e, options: RecordingOptions) => {
     if (session) throw new Error('A recording is already in progress')
+    // Toom needs an account (the recording bar can't be opened without one either)
+    if (!isSignedIn()) {
+      hideLauncher()
+      showSignIn()
+      throw new Error('Sign in to record.')
+    }
     const recorder = BrowserWindow.fromWebContents(e.sender)
     if (!recorder) throw new Error('No recorder window')
     const meta = await createProject(options)

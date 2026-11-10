@@ -6,6 +6,7 @@ import { CreditCard, Crown, Download, LogOut, Refresh } from '@renderer/lib/icon
 import { AuthForm, FormError, PlanPicker, Spinner, TextInput } from '@renderer/account/AccountUi'
 import type { AccountEvent } from '@shared/account'
 import { Group, Item } from './parts'
+import { LicenseGroup } from './LicenseGroup'
 
 const dateLabel = (iso: string | null): string =>
   iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : ''
@@ -146,7 +147,8 @@ export function AccountSection(): React.JSX.Element {
           </div>
         </Item>
       </Group>
-      {account.plan !== 'pro' && (
+      <LicenseGroup account={account} />
+      {account.plan !== 'pro' && !account.license && (
         <section className="mb-7">
           <PlanPicker account={account} />
         </section>

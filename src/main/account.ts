@@ -5,13 +5,16 @@
 import { app, BrowserWindow, ipcMain, net, powerMonitor, safeStorage, shell } from 'electron'
 import { createPublicKey, type KeyObject } from 'node:crypto'
 import { entitledPlan } from './entitlement'
+import { deviceId } from './device'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
+import { hostname } from 'node:os'
 import {
   SIGNED_OUT,
   LIMITS,
   type AccountEvent,
   type AccountGrant,
+  type AccountLicense,
   type PromoInfo,
   type PromoResult,
   type AccountResult,
@@ -27,7 +30,9 @@ import {
 declare const __TOOM_API_URL__: string
 declare const __TOOM_ENTITLEMENT_PUBLIC_KEY__: string
 
-export const API_URL = (process.env['TOOM_API_URL'] || __TOOM_API_URL__ || 'http://localhost:8787').replace(/\/$/, '')
+/** The live Toom API. Builds use it unless TOOM_API_URL says otherwise (http://localhost:8787 for a local toom-api). */
+const DEFAULT_API_URL = 'https://api.trytoom.tech'
+export const API_URL = (process.env['TOOM_API_URL'] || __TOOM_API_URL__ || DEFAULT_API_URL).replace(/\/+$/, '')
 const PUBLIC_KEY_PEM = (process.env['TOOM_ENTITLEMENT_PUBLIC_KEY'] || __TOOM_ENTITLEMENT_PUBLIC_KEY__ || '').replace(
   /\\n/g,
   '\n'
@@ -45,7 +50,9 @@ interface ServerAccount {
   plan: PlanTier
   subscription: AccountSubscription | null
   grant?: AccountGrant | null
+  license?: Omit<AccountLicense, 'problem'> & { problem?: string | null } | null
   entitlement: string | null
+  trialEligible?: boolean
 }
 
 interface Stored {
@@ -67,6 +74,8 @@ let awaiting = false
 let pollTimer: NodeJS.Timeout | null = null
 let pollUntil = 0
 let publicKey: KeyObject | null | undefined
+/** this computer's hashed hardware ID, once read (offline Pro is only trusted on the key's own seat) */
+let myDevice: string | null = null
 /** the stored session has been read */
 let loaded: Promise<void> = Promise.resolve()
 
@@ -147,7 +156,7 @@ function currentPlan(): PlanTier {
   if (!cached) return 'free'
   if (online) return cached.plan
   const k = key()
-  if (k) return entitledPlan(cached.entitlement, k, cached.user.id)
+  if (k) return entitledPlan(cached.entitlement, k, cached.user.id, Date.now(), myDevice)
   return Date.now() - checkedAt < UNSIGNED_OFFLINE_MS ? cached.plan : 'free'
 }
 
@@ -158,10 +167,25 @@ export function accountState(): AccountState {
     plan: currentPlan(),
     subscription: cached.subscription,
     grant: cached.grant ?? null,
+    license: cached.license ? { ...cached.license, problem: cached.license.problem ?? null } : null,
+    trialEligible: cached.trialEligible,
     offline: !online,
     awaitingPayment: awaiting
   }
 }
+
+/** Toom needs an account: true once a session is stored (it keeps working offline). */
+export function isSignedIn(): boolean {
+  return !!token && !!cached
+}
+
+let loadedFlag = false
+let markLoaded: () => void = () => undefined
+const loadedOnce = new Promise<void>((r) => (markLoaded = r))
+/** The stored session has been read (before that, nobody is signed in yet). */
+export const accountLoaded = (): boolean => loadedFlag
+/** Resolves once the stored session has been read. */
+export const accountReady = (): Promise<void> => loadedOnce
 
 export function currentLimits(): PlanLimits {
   return LIMITS[accountState().plan]
@@ -199,15 +223,32 @@ function emit(e: AccountEvent): void {
 type Reply<T> = { ok: true; data: T } | { ok: false; status: number; code: string; message: string }
 
 const OFFLINE_MESSAGE = 'Can’t reach Toom right now. Check your connection and try again.'
+/** in development, say which server didn't answer, so a wrong TOOM_API_URL is obvious */
+const offlineMessage = (): string =>
+  app.isPackaged ? OFFLINE_MESSAGE : `Can’t reach the Toom API at ${API_URL}. Is it running, and is TOOM_API_URL right?`
 
+/** e.g. "Ada’s MacBook Air · Toom 1.4.0 on macOS": names this computer in the list using a licence key */
 function deviceLabel(): string {
   const os = process.platform === 'darwin' ? 'macOS' : process.platform === 'win32' ? 'Windows' : 'Linux'
-  return `Toom ${app.getVersion()} on ${os}`
+  // HTTP headers carry ASCII only: anything else in a computer's name would make every request fail
+  const host = hostname()
+    .replace(/\.(local|lan|home)$/i, '')
+    .replace(/[^\x20-\x7e]/g, '')
+    .replace(/-/g, ' ')
+    .trim()
+    .slice(0, 60)
+  return `${host ? `${host} - ` : ''}Toom ${app.getVersion()} on ${os}`
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<Reply<T>> {
   await loaded // the stored session, before anything can sign in or out
   let res: Response
+  let device: string | null = null
+  try {
+    device = await deviceId()
+  } catch (err) {
+    console.warn('[account] no device id', err)
+  }
   try {
     res = await net.fetch(`${API_URL}${path}`, {
       method,
@@ -215,13 +256,16 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<Re
         accept: 'application/json',
         ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
         ...(token ? { authorization: `Bearer ${token}` } : {}),
-        'x-toom-device': deviceLabel()
+        'x-toom-device': deviceLabel(),
+        // hashed hardware ID: one free trial and one free-Pro code per computer
+        ...(device ? { 'x-toom-device-id': device } : {})
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(20000)
     })
-  } catch {
-    return { ok: false, status: 0, code: 'offline', message: OFFLINE_MESSAGE }
+  } catch (err) {
+    console.warn(`[account] ${method} ${API_URL}${path} failed:`, err instanceof Error ? err.message : err)
+    return { ok: false, status: 0, code: 'offline', message: offlineMessage() }
   }
   const data = (await res.json().catch(() => null)) as (T & { error?: { code: string; message: string } }) | null
   if (!res.ok || !data) {
@@ -232,7 +276,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<Re
       status: res.status,
       code: err?.code ?? 'server_error',
       message:
-        err?.message ?? (res.status >= 500 ? 'Toom’s servers had a problem. Try again in a moment.' : OFFLINE_MESSAGE)
+        err?.message ?? (res.status >= 500 ? 'Toom’s servers had a problem. Try again in a moment.' : offlineMessage())
     }
   }
   return { ok: true, data }
@@ -379,8 +423,11 @@ export function registerDeepLinks(): void {
 type Ask = { email: string; code?: string; password?: string; name?: string }
 
 export function registerAccountIpc(): void {
+  void deviceId().then((id) => (myDevice = id))
   loaded = load().then(() => {
     ready = true
+    loadedFlag = true
+    markLoaded()
     broadcast(true)
     // keep the plan fresh
     void refreshAccount()
@@ -457,6 +504,26 @@ export function registerAccountIpc(): void {
   ipcMain.handle('account:promoRedeem', async (_e, code: string): Promise<AccountResult> => {
     const wasPro = accountState().plan === 'pro'
     const r = await call<ServerAccount>('POST', '/v1/promo/redeem', { code })
+    if (!r.ok) return fail(r)
+    setAccount(r.data)
+    broadcast()
+    if (!wasPro && accountState().plan === 'pro') emit({ type: 'upgraded' })
+    return { ok: true, state: accountState() }
+  })
+
+  // licence keys: enter one (or a free-Pro code) to activate it here; free a computer's seat
+  ipcMain.handle('account:licenseActivate', async (_e, key: string): Promise<AccountResult> => {
+    const wasPro = accountState().plan === 'pro'
+    const r = await call<ServerAccount>('POST', '/v1/license/activate', { key })
+    if (!r.ok) return fail(r)
+    setAccount(r.data)
+    broadcast()
+    if (!wasPro && accountState().plan === 'pro') emit({ type: 'upgraded' })
+    return { ok: true, state: accountState() }
+  })
+  ipcMain.handle('account:licenseDeactivate', async (_e, device: string): Promise<AccountResult> => {
+    const wasPro = accountState().plan === 'pro'
+    const r = await call<ServerAccount>('POST', '/v1/license/deactivate', { deviceId: device })
     if (!r.ok) return fail(r)
     setAccount(r.data)
     broadcast()
