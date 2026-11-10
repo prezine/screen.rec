@@ -37,8 +37,6 @@ env:
   GH_TOKEN: ${{ secrets.RELEASES_TOKEN || secrets.GITHUB_TOKEN }}
   # macOS dev-only renaming of the Electron bundle (scripts/brand-electron.mjs) isn't needed on CI
   TOOM_SKIP_BRAND: '1'
-  # tag builds publish; manual runs only build
-  PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
 
 jobs:
   check:
@@ -78,7 +76,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Build and publish (signed + notarized)
+      - name: Build (signed + notarized)
         if: env.HAS_CERT == 'true'
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
@@ -86,20 +84,21 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: npx electron-builder --mac --publish "$PUBLISH" -c.publish.repo="$RELEASE_REPO" -c.mac.notarize=true
-      - name: Build and publish (unsigned)
+        run: npx electron-builder --mac --publish never -c.publish.repo="$RELEASE_REPO" -c.mac.notarize=true
+      - name: Build (unsigned)
         if: env.HAS_CERT != 'true'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         # an ad hoc signature: Apple silicon refuses to run code with none. People open it the
         # first time with right-click → Open (or System Settings → Privacy & Security → Open Anyway).
-        run: npx electron-builder --mac --publish "$PUBLISH" -c.publish.repo="$RELEASE_REPO" -c.mac.identity=- -c.mac.hardenedRuntime=false
+        run: npx electron-builder --mac --publish never -c.publish.repo="$RELEASE_REPO" -c.mac.identity=- -c.mac.hardenedRuntime=false
       - uses: actions/upload-artifact@v4
         with:
           name: toom-mac
           path: |
             dist/*.dmg
             dist/*.zip
+            dist/*.blockmap
             dist/latest-mac.yml
           if-no-files-found: error
           retention-days: 14
@@ -119,19 +118,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Build and publish
+      - name: Build
         shell: bash
         env:
           CSC_LINK: ${{ secrets.WIN_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CERTIFICATE_PASSWORD }}
         run: |
           if [ "$HAS_CERT" != "true" ]; then unset CSC_LINK CSC_KEY_PASSWORD; export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
-          npx electron-builder --win --publish "$PUBLISH" -c.publish.repo="$RELEASE_REPO"
+          npx electron-builder --win --publish never -c.publish.repo="$RELEASE_REPO"
       - uses: actions/upload-artifact@v4
         with:
           name: toom-windows
           path: |
             dist/*.exe
+            dist/*.blockmap
             dist/latest.yml
           if-no-files-found: error
           retention-days: 14
@@ -142,12 +142,34 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      # both builds uploaded to one draft release; make it the latest, so the website's
-      # /releases/latest/download/... links and the apps' updates switch to it together
-      - name: Publish
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      # nothing goes out unless every installer and update file is there
+      - name: Check every file is there
+        working-directory: release
         run: |
-          gh release edit "$GITHUB_REF_NAME" --repo "${{ github.repository_owner }}/$RELEASE_REPO" \
-            --draft=false --latest \
-            --notes "What's new: https://trytoom.tech/changelog
+          ls -la
+          missing=0
+          for f in Toom-arm64.dmg Toom-x64.dmg Toom-Setup.exe latest-mac.yml latest.yml; do
+            [ -f "$f" ] || { echo "::error::$f is missing"; missing=1; }
+          done
+          [ "$(ls *-mac.zip 2>/dev/null | wc -l)" -ge 2 ] || { echo "::error::the two Mac update .zip files are missing"; missing=1; }
+          exit $missing
+      # one upload of everything, then it becomes the latest release: the website's
+      # /releases/latest/download/... links and the apps' updates switch to it together
+      - name: Upload and publish
+        working-directory: release
+        env:
+          REPO: ${{ github.repository_owner }}/${{ env.RELEASE_REPO }}
+        run: |
+          notes="What's new: https://trytoom.tech/changelog
 
           Download: https://trytoom.tech/download"
+          if gh release view "$GITHUB_REF_NAME" --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" ./* --repo "$REPO" --clobber
+            gh release edit "$GITHUB_REF_NAME" --repo "$REPO" --draft=false --latest --title "${GITHUB_REF_NAME#v}" --notes "$notes"
+          else
+            gh release create "$GITHUB_REF_NAME" ./* --repo "$REPO" --latest --title "${GITHUB_REF_NAME#v}" --notes "$notes"
+          fi
