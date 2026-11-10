@@ -14,7 +14,7 @@ import type {
 } from '@shared/types'
 import type { AppSettings, SettingsPatch } from '@shared/settings'
 import type { Credit, LibraryImage, LibrarySound, UnsplashPhoto } from '@shared/media'
-import type { AccountEvent, AccountResult, AccountState, PublicPlan, UpdateStatus } from '@shared/account'
+import type { AccountEvent, AccountResult, AccountState, PromoResult, PublicPlan, UpdateStatus } from '@shared/account'
 
 function on<T>(channel: string, cb: (value: T) => void): () => void {
   const listener = (_e: Electron.IpcRendererEvent, value: T): void => cb(value)
@@ -101,7 +101,12 @@ const api = {
     remove: (): Promise<AccountResult> => ipcRenderer.invoke('account:delete'),
     plans: (): Promise<{ plans: PublicPlan[]; enabled: boolean }> => ipcRenderer.invoke('account:plans'),
     /** opens Bachs checkout in the browser; the plan updates by itself when payment lands */
-    checkout: (plan: PublicPlan['id']): Promise<AccountResult> => ipcRenderer.invoke('account:checkout', plan),
+    checkout: (plan: PublicPlan['id'], code?: string): Promise<AccountResult> =>
+      ipcRenderer.invoke('account:checkout', plan, code),
+    /** what a promo code does (free Pro, or a discount) */
+    promoCheck: (code: string): Promise<PromoResult> => ipcRenderer.invoke('account:promoCheck', code),
+    /** use a free-Pro code */
+    promoRedeem: (code: string): Promise<AccountResult> => ipcRenderer.invoke('account:promoRedeem', code),
     cancelWaiting: (): Promise<AccountState> => ipcRenderer.invoke('account:cancelWaiting'),
     portal: (): Promise<AccountResult> => ipcRenderer.invoke('account:portal'),
     onChanged: (cb: (s: AccountState) => void) => on('account:changed', cb),

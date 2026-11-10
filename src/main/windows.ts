@@ -466,6 +466,8 @@ export function hasAppWindows(): boolean {
 }
 
 export function openEditorWindow(projectId: string): BrowserWindow {
+  // the recording bar makes way for the editor (New Recording brings it back)
+  hideLauncher()
   const existing = editorWindows.get(projectId)
   if (alive(existing ?? null)) {
     existing!.show()

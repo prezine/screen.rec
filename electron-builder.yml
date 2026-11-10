@@ -46,6 +46,8 @@ mac:
     NSMicrophoneUsageDescription: Toom uses your microphone to record narration.
     NSScreenCaptureUsageDescription: Toom records your screen.
 win:
+  # full-bleed artwork for Windows (macOS uses build/icon.png on Apple's icon grid)
+  icon: build/icon-win.png
   target:
     - target: nsis
       arch: [x64, arm64]

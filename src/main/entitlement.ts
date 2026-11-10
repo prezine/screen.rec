@@ -1,7 +1,7 @@
 import { verify, type KeyObject } from 'node:crypto'
 import type { PlanTier } from '@shared/account'
 
-// Entitlements are signed by the Toom API (toon-api: src/crypto.ts signEntitlement) with Ed25519:
+// Entitlements are signed by the Toom API (toom-api: src/crypto.ts signEntitlement) with Ed25519:
 // base64url(JSON payload) "." base64url(signature). The app only holds the public key.
 
 export interface Entitlement {

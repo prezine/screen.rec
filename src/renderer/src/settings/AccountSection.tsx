@@ -12,6 +12,12 @@ const dateLabel = (iso: string | null): string =>
 
 function statusLine(s: NonNullable<ReturnType<typeof useAccount>>): string {
   const sub = s.subscription
+  const g = s.grant
+  const viaGrant = g && (!sub || !['trialing', 'active', 'past_due'].includes(sub.status))
+  if (viaGrant) {
+    const who = g.source === 'promo' ? 'with a promo code' : 'from the Toom team'
+    return g.endsAt ? `Pro ${who} · until ${dateLabel(g.endsAt)}` : `Pro for good, ${who}`
+  }
   if (!sub) return s.plan === 'pro' ? 'Pro' : 'Free plan'
   const end = dateLabel(sub.currentPeriodEnd)
   if (s.plan !== 'pro')

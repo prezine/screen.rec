@@ -3,7 +3,7 @@ import { createPublicKey, generateKeyPairSync } from 'node:crypto'
 import { entitledPlan, readEntitlement } from './entitlement'
 import { createPrivateKey, sign } from 'node:crypto'
 
-/** Same format the Toom API signs with (toon-api: src/crypto.ts signEntitlement). */
+/** Same format the Toom API signs with (toom-api: src/crypto.ts signEntitlement). */
 function signEntitlement(payload: Record<string, unknown>, privateKeyPem: string): string {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url')
   return `${body}.${sign(null, Buffer.from(body), createPrivateKey(privateKeyPem)).toString('base64url')}`

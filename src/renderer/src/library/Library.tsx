@@ -1,3 +1,4 @@
+import { Wordmark } from '@renderer/lib/brand'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, FolderOpen, Search, Settings, Trash, Video } from '@renderer/lib/icons'
 import type { ProjectMeta } from '@shared/types'
@@ -162,14 +163,7 @@ export function Library(): React.JSX.Element {
 }
 
 function Logo(): React.JSX.Element {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="grid size-6 place-items-center rounded-md bg-gradient-to-br from-brand-400 to-brand-700 shadow-inner">
-        <span className="size-2 rounded-full bg-[#fff]" />
-      </span>
-      <span className="text-[15px] font-bold tracking-tight">Toom</span>
-    </div>
-  )
+  return <Wordmark height={17} />
 }
 
 function Banner({

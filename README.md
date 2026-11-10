@@ -14,10 +14,19 @@ npm test           # engine unit tests
 
 Requires Node 20+.
 
-The account/billing API is its own repo, **toon-api** (keep it next to this one, e.g. `Sites/localhost/toon-api`):
+Toom is split into four repos that live side by side (e.g. in `Sites/localhost/`):
+
+| Repo | What |
+|---|---|
+| **toom-software** (this one) | the desktop app |
+| **toom-api** | accounts, plans, Bachs billing, promo codes, admin API |
+| **toom-admin** | the admin dashboard (Next.js) |
+| **toom-website** | the marketing site |
+
+Run the API next to the app:
 
 ```bash
-cd ../toon-api && npm install && npm run dev   # http://localhost:8787 — the app's dev builds use it
+cd ../toom-api && npm install && npm run dev   # http://localhost:8787 — the app's dev builds use it
 ```
 
 The app runs fine without it: you just stay on the Free plan, and sign-in shows "Can't reach Toom".
@@ -160,7 +169,7 @@ src/
   - The background-layer cache holds at most 3 sizes.
   - Idle windows (library, settings, welcome) are throttled while hidden.
 - **Disk**: Settings → Advanced → Disk usage shows the space used by recordings, libraries and downloaded models, and can clear the models (they download again when needed).
-- **API** (toon-api):
+- **API** (toom-api):
   - Security headers are set on every response, and account responses are sent with `no-store`.
   - Request bodies are limited to 64 KB, or 1 MB for webhooks.
   - Forwarded IPs are trusted only with `TRUST_PROXY=true`.
@@ -191,7 +200,7 @@ On first launch Toom copies the old app data (settings, background library, mode
 
 ## Testing
 - `npm run test:ui` (needs Playwright): records a scripted demo session, then screenshots the real editor (mocked Electron API) into `test/ui/shots/`.
-- `node test/ui/account.mjs` (needs Playwright): starts the real API (toon-api, next to this repo or at `TOOM_API_DIR`) with a fake Bachs, then drives welcome → code sign-in → Pro checkout → webhook → Settings → Account → Free export limits in the real UI.
-- `npm test` in toon-api: API tests (auth, Bachs checkout/portal/webhooks, entitlements).
+- `node test/ui/account.mjs` (needs Playwright): starts the real API (toom-api, next to this repo or at `TOOM_API_DIR`) with a fake Bachs, then drives welcome → code sign-in → Pro checkout → webhook → Settings → Account → Free export limits in the real UI.
+- `npm test` in toom-api: API tests (auth, Bachs checkout/portal/webhooks, entitlements).
 - `npm test`: unit tests for auto-zoom, the zoom curve, camera clamping, layout and cursor smoothing.
 - `npm run test:pipeline` (needs Playwright installed): records a synthetic WebM in headless Chromium, then runs the real remux and export code against a local file server.

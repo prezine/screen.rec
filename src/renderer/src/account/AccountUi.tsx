@@ -9,6 +9,7 @@ import {
   priceLabel,
   type AccountResult,
   type AccountState,
+  type PromoInfo,
   type PublicPlan
 } from '@shared/account'
 
@@ -353,19 +354,27 @@ function Feature({ children, on }: { children: ReactNode; on?: boolean }): React
 export function PlanPicker({
   account,
   onFree,
-  freeLabel = 'Continue with Free'
+  freeLabel = 'Continue with Free',
+  codeOpen = false
 }: {
   account: AccountState
   /** shown as a button on the Free card (welcome flow) */
   onFree?: () => void
   freeLabel?: string
+  /** show the promo code field straight away (welcome flow) */
+  codeOpen?: boolean
 }): React.JSX.Element {
   const { plans, enabled, loaded } = usePlans()
   const [interval, setIv] = useState<'month' | 'year'>('year')
   const { busy, error, run } = useCall()
+  /** a discount code applied to checkout */
+  const [discount, setDiscount] = useState<PromoInfo | null>(null)
   const month = plans.find((p) => p.interval === 'month')
   const year = plans.find((p) => p.interval === 'year')
   const chosen = (interval === 'year' ? year : month) ?? year ?? month
+  const discountPrice = chosen && discount?.prices?.[chosen.id]
+  const checkout = (id: PublicPlan['id']): Promise<unknown> =>
+    run(() => api.account.checkout(id, discount?.plans.includes(id) ? discount.code : undefined))
   const saving = month && year ? Math.round((1 - Number(year.amount) / (Number(month.amount) * 12)) * 100) : 0
   const pro = account.plan === 'pro'
 
@@ -379,7 +388,7 @@ export function PlanPicker({
         </p>
         <div className="mt-4 flex justify-center gap-2">
           {chosen && (
-            <Button size="sm" onClick={() => void run(() => api.account.checkout(chosen.id))} disabled={busy}>
+            <Button size="sm" onClick={() => void checkout(chosen.id)} disabled={busy}>
               Open checkout again
             </Button>
           )}
@@ -446,13 +455,31 @@ export function PlanPicker({
             {pro && <span className="text-[10.5px] font-medium text-brand-300">Current</span>}
           </div>
           <div className="mt-1 text-[22px] font-semibold tracking-tight">
-            {chosen ? priceLabel(chosen) : loaded ? '—' : <Spinner />}
-            {chosen?.interval === 'year' && month && (
+            {chosen ? (
+              discountPrice ? (
+                <>
+                  {priceLabel({ ...chosen, amount: discountPrice })}
+                  <span className="ml-1.5 text-[12px] font-normal text-ink-300 line-through">{priceLabel(chosen)}</span>
+                </>
+              ) : (
+                priceLabel(chosen)
+              )
+            ) : loaded ? (
+              '—'
+            ) : (
+              <Spinner />
+            )}
+            {chosen?.interval === 'year' && month && !discountPrice && (
               <span className="ml-1.5 text-[11.5px] font-normal text-ink-300">
                 ${(Number(chosen.amount) / 12).toFixed(2)}/mo
               </span>
             )}
           </div>
+          {discountPrice && discount && (
+            <span className="mt-1 w-fit rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10.5px] font-semibold text-emerald-500">
+              {discount.code} · {discount.percentOff}% off every payment
+            </span>
+          )}
           <ul className="mt-3 flex-1 space-y-1.5">
             {PRO_FEATURES.map((f) => (
               <Feature key={f} on>
@@ -465,7 +492,7 @@ export function PlanPicker({
               variant="primary"
               className="mt-4 w-full"
               disabled={busy || !enabled || !chosen}
-              onClick={() => chosen && void run(() => api.account.checkout(chosen.id))}
+              onClick={() => chosen && void checkout(chosen.id)}
             >
               {busy && <Spinner />}
               {chosen?.trialDays ? `Start ${chosen.trialDays}-day free trial` : 'Upgrade to Pro'}
@@ -485,6 +512,129 @@ export function PlanPicker({
         </p>
       ) : null}
       <FormError>{error}</FormError>
+      {!pro && (
+        <PromoCodeField
+          open={codeOpen}
+          discount={discount}
+          onDiscount={(d) => {
+            setDiscount(d)
+            // show the price the code applies to
+            if (d && chosen && !d.plans.includes(chosen.id)) setIv(d.plans[0] === 'pro-month' ? 'month' : 'year')
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+const forHowLong = (days: number | null): string =>
+  days === null
+    ? 'for good'
+    : days % 365 === 0
+      ? `for ${days / 365} year${days === 365 ? '' : 's'}`
+      : days % 30 === 0
+        ? `for ${days / 30} month${days === 30 ? '' : 's'}`
+        : `for ${days} days`
+
+/**
+ * "Have a code?": a free-Pro code unlocks Pro straight away; a discount code lowers the Pro price
+ * at checkout.
+ */
+export function PromoCodeField({
+  open: startOpen = false,
+  discount,
+  onDiscount
+}: {
+  open?: boolean
+  discount: PromoInfo | null
+  onDiscount: (d: PromoInfo | null) => void
+}): React.JSX.Element {
+  const [open, setOpen] = useState(startOpen)
+  const [code, setCode] = useState('')
+  const [found, setFound] = useState<PromoInfo | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const apply = async (e?: React.FormEvent): Promise<void> => {
+    e?.preventDefault()
+    if (!code.trim() || busy) return
+    setBusy(true)
+    setError('')
+    setFound(null)
+    const r = await api.account.promoCheck(code.trim())
+    setBusy(false)
+    if (!r.ok) return setError(r.message)
+    if (r.promo.kind === 'discount') onDiscount(r.promo)
+    else setFound(r.promo)
+  }
+  const claim = async (): Promise<void> => {
+    if (!found) return
+    setBusy(true)
+    setError('')
+    const r = await api.account.promoRedeem(found.code)
+    setBusy(false)
+    if (!r.ok) setError(r.message)
+    // success: the account turns Pro and the screen moves on by itself
+  }
+
+  if (discount)
+    return (
+      <p className="flex items-center justify-center gap-2 text-[12px] text-ink-300">
+        <Check size={13} className="text-emerald-500" />
+        Code <span className="font-semibold text-ink-100">{discount.code}</span> applied.
+        <button className="no-drag text-brand-300 hover:underline" onClick={() => onDiscount(null)}>
+          Remove
+        </button>
+      </p>
+    )
+
+  if (!open)
+    return (
+      <p className="text-center">
+        <button className="no-drag text-[12px] text-brand-300 hover:underline" onClick={() => setOpen(true)}>
+          Have a code?
+        </button>
+      </p>
+    )
+
+  return (
+    <div className="glass-card rounded-[16px] p-3.5">
+      {found ? (
+        <div className="flex items-center gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-amber-300/15 text-amber-400">
+            <Crown size={17} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-medium">
+              {found.code} unlocks Toom Pro {forHowLong(found.proDays)}
+            </div>
+            <div className="text-[11.5px] text-ink-300">{found.description || 'No payment needed.'}</div>
+          </div>
+          <Button variant="primary" size="sm" disabled={busy} onClick={() => void claim()}>
+            {busy && <Spinner />} Claim Pro
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={(e) => void apply(e)} className="flex items-end gap-2">
+          <TextInput
+            label="Promo code"
+            className="flex-1"
+            placeholder="e.g. FRIENDS30"
+            autoCapitalize="characters"
+            spellCheck={false}
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+          />
+          <Button type="submit" className="h-10" disabled={busy || !code.trim()}>
+            {busy && <Spinner />} Apply
+          </Button>
+        </form>
+      )}
+      {error && (
+        <div className="mt-2.5">
+          <FormError>{error}</FormError>
+        </div>
+      )}
     </div>
   )
 }

@@ -463,3 +463,20 @@
     opacity: 0.16;
   }
 }
+
+/* status colours written for dark backgrounds: deepen them on light ones */
+:root[data-theme='light'] {
+  .text-emerald-200,
+  .text-emerald-300,
+  .text-emerald-400 {
+    color: #047857;
+  }
+  .text-amber-200,
+  .text-amber-300 {
+    color: #b45309;
+  }
+  .text-red-300,
+  .text-red-400 {
+    color: #b91c1c;
+  }
+}

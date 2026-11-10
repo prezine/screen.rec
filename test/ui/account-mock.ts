@@ -13,7 +13,7 @@ type Server = { user: AccountState['user']; plan: AccountState['plan']; subscrip
 
 const publish = (a: Server | null): void => {
   state = a
-    ? { user: a.user, plan: a.plan, subscription: a.subscription, offline: false, awaitingPayment: awaiting }
+    ? { user: a.user, plan: a.plan, subscription: a.subscription, grant: (a as { grant?: AccountState["grant"] }).grant ?? null, offline: false, awaitingPayment: awaiting }
     : SIGNED_OUT
   changed.forEach((l) => l(state))
 }
@@ -100,8 +100,23 @@ export const accountApi = {
     const r = await call<{ plans: unknown[]; enabled: boolean }>('GET', '/v1/billing/plans')
     return r.ok ? r.data : { plans: [], enabled: false }
   },
-  checkout: async (plan: string): Promise<AccountResult> => {
-    const r = await call<{ url: string; checkoutId: string }>('POST', '/v1/billing/checkout', { plan })
+  promoCheck: async (code: string) => {
+    const r = await call<Record<string, unknown>>('POST', '/v1/promo/check', { code })
+    return r.ok ? { ok: true, promo: r.data } : r
+  },
+  promoRedeem: async (code: string): Promise<AccountResult> => {
+    const was = state.plan
+    const r = await call<Server>('POST', '/v1/promo/redeem', { code })
+    if (!r.ok) return r
+    publish(r.data)
+    if (was !== 'pro' && r.data.plan === 'pro') emit({ type: 'upgraded' })
+    return { ok: true, state }
+  },
+  checkout: async (plan: string, code?: string): Promise<AccountResult> => {
+    const r = await call<{ url: string; checkoutId: string }>('POST', '/v1/billing/checkout', {
+      plan,
+      ...(code ? { code } : {})
+    })
     if (!r.ok) return r
     ;(window as unknown as { __checkout: unknown }).__checkout = r.data
     awaiting = true

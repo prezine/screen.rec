@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import { ChevronDown, RotateCcw } from '@renderer/lib/icons'
 
@@ -131,10 +132,31 @@ export function Dropdown({
     onOpenChange?.(v)
   }
   const ref = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  // The menu renders in a layer above the whole window (a portal), so panels and glass next to
+  // the trigger can never cover it.
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null)
+  useLayoutEffect(() => {
+    if (!open) return setPos(null)
+    const place = (): void => {
+      const r = ref.current?.getBoundingClientRect()
+      if (!r) return
+      const left = Math.max(8, Math.min(align === 'left' ? r.left : r.right - width, window.innerWidth - width - 8))
+      setPos(side === 'bottom' ? { left, top: r.bottom + 8 } : { left, bottom: window.innerHeight - r.top + 8 })
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [open, align, side, width])
   useEffect(() => {
     if (!open) return
     const onDown = (e: PointerEvent): void => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (!ref.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') setOpen(false)
@@ -150,18 +172,18 @@ export function Dropdown({
   return (
     <div ref={ref} className="no-drag relative">
       <div onClick={() => setOpen(!open)}>{trigger(open)}</div>
-      {open && (
-        <div
-          style={{ width }}
-          className={clsx(
-            'glass-strong absolute z-40 rounded-2xl p-1.5',
-            side === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2',
-            align === 'left' ? 'left-0' : 'right-0'
-          )}
-        >
-          {typeof children === 'function' ? children(close) : children}
-        </div>
-      )}
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ width, left: pos.left, top: pos.top, bottom: pos.bottom, maxHeight: 'calc(100vh - 24px)' }}
+            className="glass-strong no-drag fixed z-[1000] overflow-y-auto rounded-2xl p-1.5"
+          >
+            {typeof children === 'function' ? children(close) : children}
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

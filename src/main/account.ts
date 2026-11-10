@@ -1,4 +1,4 @@
-// Toom account: sign-in, plan and billing. Talks to the Toom API (the toon-api repo), keeps the session token
+// Toom account: sign-in, plan and billing. Talks to the Toom API (the toom-api repo), keeps the session token
 // encrypted with the OS keychain (safeStorage), and keeps working offline using a signed
 // entitlement the server hands out.
 
@@ -11,6 +11,9 @@ import {
   SIGNED_OUT,
   LIMITS,
   type AccountEvent,
+  type AccountGrant,
+  type PromoInfo,
+  type PromoResult,
   type AccountResult,
   type AccountState,
   type AccountSubscription,
@@ -41,6 +44,7 @@ interface ServerAccount {
   user: AccountUser
   plan: PlanTier
   subscription: AccountSubscription | null
+  grant?: AccountGrant | null
   entitlement: string | null
 }
 
@@ -153,6 +157,7 @@ export function accountState(): AccountState {
     user: cached.user,
     plan: currentPlan(),
     subscription: cached.subscription,
+    grant: cached.grant ?? null,
     offline: !online,
     awaitingPayment: awaiting
   }
@@ -444,8 +449,23 @@ export function registerAccountIpc(): void {
     const r = await call<{ plans: PublicPlan[]; enabled: boolean }>('GET', '/v1/billing/plans')
     return r.ok ? r.data : { plans: [], enabled: false }
   })
-  ipcMain.handle('account:checkout', async (_e, plan: PublicPlan['id']): Promise<AccountResult> => {
-    const r = await call<{ url: string }>('POST', '/v1/billing/checkout', { plan })
+  // promo codes: free Pro, or a discount used at checkout
+  ipcMain.handle('account:promoCheck', async (_e, code: string): Promise<PromoResult> => {
+    const r = await call<PromoInfo>('POST', '/v1/promo/check', { code })
+    return r.ok ? { ok: true, promo: r.data } : { ok: false, code: r.code, message: r.message }
+  })
+  ipcMain.handle('account:promoRedeem', async (_e, code: string): Promise<AccountResult> => {
+    const wasPro = accountState().plan === 'pro'
+    const r = await call<ServerAccount>('POST', '/v1/promo/redeem', { code })
+    if (!r.ok) return fail(r)
+    setAccount(r.data)
+    broadcast()
+    if (!wasPro && accountState().plan === 'pro') emit({ type: 'upgraded' })
+    return { ok: true, state: accountState() }
+  })
+
+  ipcMain.handle('account:checkout', async (_e, plan: PublicPlan['id'], code?: string): Promise<AccountResult> => {
+    const r = await call<{ url: string }>('POST', '/v1/billing/checkout', { plan, ...(code ? { code } : {}) })
     if (!r.ok) {
       if (r.code === 'already_pro') await refreshAccount()
       return fail(r)

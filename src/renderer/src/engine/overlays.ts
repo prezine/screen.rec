@@ -336,34 +336,49 @@ export function drawOverlays(
   }
 }
 
-/** "Made with Toom" mark for Free plan exports, bottom-right. */
+// the Toom mark (assets/brand/toom-mark.svg), 2494 × 2284
+const MARK_D =
+  'M0 0H2494V2284H0ZM0 1770L0 1256L354 1256C690 1256 707 1256 707 1258C706 1259 703 1268 699 1279C651 1417 622 1553 607 1717C595 1838 590 1968 588 2195L588 2284L294 2284L0 2284L0 1770ZM1810 2283C1810 2282 1809 2268 1809 2252C1799 2068 1802 1926 1817 1814C1846 1596 1923 1457 2069 1361C2133 1319 2214 1283 2310 1255C2361 1241 2430 1225 2490 1214L2494 1214L2494 1749L2494 2284L2152 2284C1906 2284 1810 2284 1810 2283ZM1212 250L1212 20L606 20L0 20L0 10L0 0L1241 0C1923 0 2473 1 2462 1C2412 3 2360 6 2317 10C1915 44 1649 155 1239 460L1212 480L1212 250Z'
+let markPath: Path2D | null = null
+
+/** "Made with Toom" for Free plan exports, bottom-right: the brand mark and the words on a dark pill. */
 export function drawWatermark(ctx: Ctx, W: number, H: number): void {
   const s = Math.min(W, H)
   const font = Math.max(11, Math.round(s * 0.026))
   const padX = font * 0.8
   const h = font * 2
   const margin = Math.round(s * 0.03)
+  const markH = font * 1.05
+  const markW = (markH * 2494) / 2284
   ctx.save()
   ctx.font = `600 ${font}px -apple-system, "SF Pro Text", "Segoe UI", Inter, sans-serif`
   const label = 'Made with Toom'
-  const dot = font * 0.42
-  const w = ctx.measureText(label).width + padX * 2 + dot * 2.2
+  const w = padX * 2 + markW + font * 0.5 + ctx.measureText(label).width
   const x = W - margin - w
   const y = H - margin - h
-  ctx.globalAlpha = 0.9
-  ctx.fillStyle = 'rgba(12,12,16,0.55)'
+  ctx.globalAlpha = 0.92
+  ctx.fillStyle = 'rgba(12,12,16,0.58)'
   ctx.beginPath()
   ctx.roundRect(x, y, w, h, h / 2)
   ctx.fill()
   ctx.strokeStyle = 'rgba(255,255,255,0.18)'
   ctx.lineWidth = Math.max(1, font * 0.06)
   ctx.stroke()
-  ctx.fillStyle = '#8f80ff'
-  ctx.beginPath()
-  ctx.arc(x + padX + dot / 2, y + h / 2, dot / 2, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.fillStyle = 'rgba(255,255,255,0.92)'
+  // the mark, in the brand gradient
+  markPath ??= new Path2D(MARK_D)
+  const mx = x + padX
+  const my = y + (h - markH) / 2
+  ctx.save()
+  ctx.translate(mx, my)
+  ctx.scale(markW / 2494, markH / 2284)
+  const g = ctx.createLinearGradient(0, 0, 0, 2284) // in the mark's own units
+  g.addColorStop(0, '#88C032')
+  g.addColorStop(1, '#EBAF15')
+  ctx.fillStyle = g
+  ctx.fill(markPath, 'evenodd')
+  ctx.restore()
+  ctx.fillStyle = 'rgba(255,255,255,0.94)'
   ctx.textBaseline = 'middle'
-  ctx.fillText(label, x + padX + dot * 2.2, y + h / 2 + font * 0.04)
+  ctx.fillText(label, mx + markW + font * 0.5, y + h / 2 + font * 0.04)
   ctx.restore()
 }

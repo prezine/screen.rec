@@ -42,10 +42,32 @@ export interface AccountSubscription {
   canManage: boolean
 }
 
+/** Pro without a subscription: from a promo code, or given by the Toom team */
+export interface AccountGrant {
+  source: 'promo' | 'admin'
+  /** null = for good */
+  endsAt: string | null
+}
+
+/** What a promo code does (from the server, before using it) */
+export interface PromoInfo {
+  code: string
+  kind: 'free_pro' | 'discount'
+  description: string | null
+  /** free_pro: how long; null = for good */
+  proDays: number | null
+  /** discount: percent off every payment on these plans */
+  percentOff: number | null
+  plans: ('pro-month' | 'pro-year')[]
+  /** discount: the discounted price per plan */
+  prices?: Partial<Record<'pro-month' | 'pro-year', string>>
+}
+
 export interface AccountState {
   user: AccountUser | null
   plan: PlanTier
   subscription: AccountSubscription | null
+  grant?: AccountGrant | null
   /** couldn't reach the server; showing what we knew last */
   offline: boolean
   /** waiting for a checkout started from this app to complete */
@@ -56,6 +78,7 @@ export const SIGNED_OUT: AccountState = {
   user: null,
   plan: 'free',
   subscription: null,
+  grant: null,
   offline: false,
   awaitingPayment: false
 }
@@ -78,6 +101,7 @@ export type AccountEvent =
 
 /** Result of an account call: either the new state or a message to show. */
 export type AccountResult = { ok: true; state: AccountState } | { ok: false; code: string; message: string }
+export type PromoResult = { ok: true; promo: PromoInfo } | { ok: false; code: string; message: string }
 
 export type UpdateStatus =
   | { state: 'idle' }

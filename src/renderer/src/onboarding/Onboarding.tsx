@@ -1,5 +1,6 @@
 // First-run welcome: account → plan → permissions → ready. Every step can be skipped; Toom
 // works without an account on the Free plan.
+import { AppIcon } from '@renderer/lib/brand'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '@renderer/lib/api'
 import { useAccount } from '@renderer/lib/account'
@@ -24,20 +25,6 @@ type Step = 'welcome' | 'account' | 'plan' | 'permissions' | 'ready'
 const STEPS: Step[] = ['welcome', 'account', 'plan', 'permissions', 'ready']
 
 type Perms = { screen: string; camera: string; microphone: string; accessibility: boolean }
-
-export function Logo({ size = 64 }: { size?: number }): React.JSX.Element {
-  return (
-    <div
-      className="relative grid place-items-center bg-gradient-to-b from-brand-400 to-brand-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_18px_40px_-12px_rgba(109,92,255,0.9)]"
-      style={{ width: size, height: size, borderRadius: size * 0.3 }}
-    >
-      <div
-        className="rounded-full bg-[#fff] shadow-[0_0_0_6px_rgba(255,255,255,0.18)]"
-        style={{ width: size * 0.34, height: size * 0.34 }}
-      />
-    </div>
-  )
-}
 
 export function Onboarding(): React.JSX.Element {
   const account = useAccount()
@@ -101,7 +88,7 @@ export function Onboarding(): React.JSX.Element {
         <div key={step} className="animate-fade-in flex w-full flex-1 flex-col items-center justify-center py-4">
           {step === 'welcome' && (
             <div className="flex max-w-[460px] flex-col items-center text-center">
-              <Logo size={76} />
+              <AppIcon size={80} />
               <h1 className="mt-6 text-[28px] font-semibold tracking-tight">Welcome to Toom</h1>
               <p className="mt-2 text-[14px] leading-relaxed text-ink-300">
                 Record your screen and get a polished video — automatic zooms, a smooth cursor and beautiful
@@ -140,9 +127,11 @@ export function Onboarding(): React.JSX.Element {
                 <h1 className="flex items-center justify-center gap-2 text-[22px] font-semibold tracking-tight">
                   <Crown size={20} className="text-amber-300" /> Choose your plan
                 </h1>
-                <p className="mt-1 text-[13px] text-ink-300">Start free. Upgrade any time from Settings.</p>
+                <p className="mt-1 text-[13px] text-ink-300">
+                  Start free, upgrade any time — or enter a code below to unlock Pro.
+                </p>
               </div>
-              <PlanPicker account={account} onFree={next} />
+              <PlanPicker account={account} onFree={next} codeOpen />
             </div>
           )}
 
