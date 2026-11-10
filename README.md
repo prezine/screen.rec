@@ -144,11 +144,32 @@ src/
   - The limits live in `src/shared/account.ts`.
 - **Subscriptions** go through Bachs checkout in the browser. Toom notices the payment by itself, either through the `toom://billing/success` link or by polling. "Manage billing" opens the Bachs customer portal.
 - **Offline**: Pro keeps working for up to 7 days without a connection, using a server-signed entitlement that the app verifies with `TOOM_ENTITLEMENT_PUBLIC_KEY`.
-- **Auto-updates** use `electron-updater` against the `TOOM_UPDATE_URL` feed. Toom checks on launch and every 4 hours, downloads in the background and installs when the app restarts. You can also use *Check for Updates…* (app menu) or Settings → General → Updates.
-  - To publish a release: bump `version`, run `npm run dist:mac` / `dist:win` with `TOOM_UPDATE_URL` set, and upload `dist/latest*.yml` plus the installers and zips to that URL.
-  - **With GitHub Releases** (what the website links to): set `TOOM_UPDATE_URL=https://github.com/prezine/toom-software/releases/latest/download`, then attach everything in `dist/` (`Toom-arm64.dmg`, `Toom-x64.dmg`, the zips, `Toom-Setup-x64.exe`, `Toom-Setup-arm64.exe`, `latest-mac.yml`, `latest.yml`, blockmaps) to one published (not draft) release. The installers' names have no version, so the website's links always get the newest. The repo (or a separate public releases repo) must be public for visitors to download.
-  - **macOS only installs updates for signed and notarized apps.** Unsigned builds show a "download the latest version" message instead. Windows (NSIS) updates work unsigned, although SmartScreen will warn about the installer.
-- Build settings go in `.env` (see `.env.example`): `TOOM_API_URL`, `TOOM_ENTITLEMENT_PUBLIC_KEY`, `TOOM_UPDATE_URL`.
+- **Auto-updates** use `electron-updater` against the GitHub releases (`publish` in `electron-builder.yml`). Toom checks on launch and every 4 hours, downloads in the background and installs when the app restarts. You can also use *Check for Updates…* (app menu, or the About window).
+
+## Releasing
+
+GitHub Actions builds and publishes every release (`.github/workflows/release.yml`):
+
+```bash
+npm run release          # 0.3.0 → 0.3.1: typecheck, test, bump, tag, push
+npm run release minor    # 0.3.0 → 0.4.0
+```
+
+The tag starts the workflow: it type-checks and tests, builds macOS (Apple silicon and Intel `.dmg` + update `.zip`) and Windows (one `Toom-Setup.exe` for x64 and Arm) in parallel, uploads them to a draft release, then publishes it as the latest. The website's download links (`/releases/latest/download/Toom-arm64.dmg`, `Toom-x64.dmg`, `Toom-Setup.exe`) and every installed app's updates switch to it at the same moment. *Run workflow* on the Actions tab makes a test build without publishing; the installers are attached to the run.
+
+Set these under **Settings → Secrets and variables → Actions**:
+
+| | |
+|---|---|
+| `TOOM_API_URL` (variable) | the API, default `https://api.trytoom.tech` |
+| `TOOM_ENTITLEMENT_PUBLIC_KEY` (variable) | public half of the API's entitlement key, so Pro works offline |
+| `RELEASE_REPO` (variable) + `RELEASES_TOKEN` (secret) | optional: publish to another **public** repo (e.g. `toom-releases`) so this one can stay private. Downloads and updates need a public repo. Update `DOWNLOAD_BASE_URL` on the website to match. |
+| `MAC_CERTIFICATE`, `MAC_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` (secrets) | optional: sign and notarize the Mac app (needs an Apple Developer account). Without them the Mac build is unsigned: people open it the first time with right-click → Open, or System Settings → Privacy & Security → Open Anyway. |
+| `WIN_CERTIFICATE`, `WIN_CERTIFICATE_PASSWORD` (secrets) | optional: sign the Windows installer. Without it, SmartScreen shows "Windows protected your PC" (More info → Run anyway) until the app builds a reputation. |
+
+Local builds (no upload): `npm run dist:mac` / `npm run dist:win`.
+
+- Build settings go in `.env` (see `.env.example`): `TOOM_API_URL`, `TOOM_ENTITLEMENT_PUBLIC_KEY`. CI sets them from the repo's Actions variables.
 
 ## Security, memory & disk
 - **Locked-down windows**:

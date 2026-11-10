@@ -1,0 +1,153 @@
+# Builds Toom for macOS (Apple silicon + Intel) and Windows (x64 + Arm) and publishes a GitHub
+# release, which is where the website's download links and the app's auto-updates point.
+#
+# Start one with `npm run release` (bumps the version, tags vX.Y.Z and pushes), or push a tag
+# yourself. "Run workflow" on the Actions tab builds without publishing (a test build).
+#
+# Repository settings → Secrets and variables → Actions:
+#   Variables
+#     TOOM_API_URL                  https://api.trytoom.tech (the default)
+#     TOOM_ENTITLEMENT_PUBLIC_KEY   public half of the API's entitlement key (lets Pro work offline)
+#     RELEASE_REPO                  optional: publish to another public repo (e.g. toom-releases),
+#                                   so this one can stay private. Needs RELEASES_TOKEN.
+#   Secrets (all optional; without them the builds are unsigned)
+#     RELEASES_TOKEN                a token with write access to RELEASE_REPO
+#     MAC_CERTIFICATE               base64 of a "Developer ID Application" .p12
+#     MAC_CERTIFICATE_PASSWORD      its password
+#     APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID   for notarization
+#     WIN_CERTIFICATE, WIN_CERTIFICATE_PASSWORD               a Windows code-signing .pfx (base64)
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TOOM_API_URL: ${{ vars.TOOM_API_URL || 'https://api.trytoom.tech' }}
+  TOOM_ENTITLEMENT_PUBLIC_KEY: ${{ vars.TOOM_ENTITLEMENT_PUBLIC_KEY }}
+  RELEASE_REPO: ${{ vars.RELEASE_REPO || 'toom-software' }}
+  GH_TOKEN: ${{ secrets.RELEASES_TOKEN || secrets.GITHUB_TOKEN }}
+  # macOS dev-only renaming of the Electron bundle (scripts/brand-electron.mjs) isn't needed on CI
+  TOOM_SKIP_BRAND: '1'
+  # tag builds publish; manual runs only build
+  PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+
+jobs:
+  check:
+    name: Typecheck and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # no Electron binary or native rebuilds needed to typecheck and test
+      - run: npm ci --ignore-scripts
+      - name: Tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          v=$(node -p "require('./package.json').version")
+          if [ "v$v" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} doesn't match package.json version $v. Use npm run release."
+            exit 1
+          fi
+      - run: npm run typecheck
+      - run: npm test
+
+  mac:
+    name: macOS (Apple silicon + Intel)
+    needs: check
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      HAS_CERT: ${{ secrets.MAC_CERTIFICATE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Build and publish (signed + notarized)
+        if: env.HAS_CERT == 'true'
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npx electron-builder --mac --publish "$PUBLISH" -c.publish.repo="$RELEASE_REPO" -c.mac.notarize=true
+      - name: Build and publish (unsigned)
+        if: env.HAS_CERT != 'true'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        # an ad hoc signature: Apple silicon refuses to run code with none. People open it the
+        # first time with right-click → Open (or System Settings → Privacy & Security → Open Anyway).
+        run: npx electron-builder --mac --publish "$PUBLISH" -c.publish.repo="$RELEASE_REPO" -c.mac.identity=- -c.mac.hardenedRuntime=false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: toom-mac
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/latest-mac.yml
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    name: Windows (x64 + Arm)
+    needs: check
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      HAS_CERT: ${{ secrets.WIN_CERTIFICATE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Build and publish
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.WIN_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ "$HAS_CERT" != "true" ]; then unset CSC_LINK CSC_KEY_PASSWORD; export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
+          npx electron-builder --win --publish "$PUBLISH" -c.publish.repo="$RELEASE_REPO"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: toom-windows
+          path: |
+            dist/*.exe
+            dist/latest.yml
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish the release
+    needs: [mac, windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      # both builds uploaded to one draft release; make it the latest, so the website's
+      # /releases/latest/download/... links and the apps' updates switch to it together
+      - name: Publish
+        run: |
+          gh release edit "$GITHUB_REF_NAME" --repo "${{ github.repository_owner }}/$RELEASE_REPO" \
+            --draft=false --latest \
+            --notes "What's new: https://trytoom.tech/changelog
+
+          Download: https://trytoom.tech/download"

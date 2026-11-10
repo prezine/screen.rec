@@ -1,7 +1,7 @@
 import { app, Menu, nativeImage, Tray } from 'electron'
 import { join } from 'node:path'
 import { isRecording, requestStop } from './recording'
-import { showLauncher, showLibrary, showSettings, showSignIn } from './windows'
+import { showAbout, showLauncher, showLibrary, showSettings, showSignIn } from './windows'
 import { accountLoaded, isSignedIn } from './account'
 import { getSettings } from './settings'
 import { installUpdate, updateStatus } from './updater'
@@ -26,6 +26,7 @@ export function buildTrayMenu(): void {
       Menu.buildFromTemplate([
         { label: 'Sign in to Toom…', click: () => showSignIn() },
         { type: 'separator' },
+        { label: 'About Toom', click: () => void showAbout() },
         { label: 'Quit Toom', accelerator: 'CommandOrControl+Q', click: () => app.quit() }
       ])
     )
@@ -49,6 +50,7 @@ export function buildTrayMenu(): void {
           : []
       })(),
       { type: 'separator' },
+      { label: 'About Toom', click: () => void showAbout() },
       { label: 'Quit Toom', accelerator: 'CommandOrControl+Q', click: () => app.quit() }
     ])
   )

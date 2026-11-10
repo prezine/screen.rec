@@ -79,6 +79,7 @@ import {
   getWelcomeWindow,
   focusAccountUi,
   closeAccountWindows,
+  showAbout,
   showSignIn
 } from './windows'
 
@@ -124,6 +125,17 @@ function settleArea(result: { displayId: string; rect: NRect } | null): void {
 function registerIpc(): void {
   ipcMain.handle('app:platform', () => process.platform)
   ipcMain.handle('app:version', () => app.getVersion())
+  ipcMain.handle('app:about', () => void showAbout())
+  ipcMain.handle('app:aboutInfo', () => ({
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+    platform: process.platform,
+    arch: process.arch,
+    os: process.getSystemVersion(),
+    packaged: app.isPackaged
+  }))
   ipcMain.handle('app:showLauncher', () => showLauncher())
   ipcMain.handle('app:showLibrary', () => void showLibrary())
   ipcMain.handle('app:showSettings', (_e, section?: string) => void showSettings(section))
@@ -403,6 +415,13 @@ app.on('second-instance', (_e, argv) => {
 
 app.whenReady().then(() => {
   if (isMac) app.setName('Toom')
+  app.setAboutPanelOptions({
+    applicationName: 'Toom',
+    applicationVersion: app.getVersion(),
+    copyright: `© ${new Date().getFullYear()} Toom. All rights reserved.`,
+    website: 'https://trytoom.tech',
+    credits: 'Screen recordings that edit themselves.'
+  })
 
   // camera, mic and screen only for Toom's own pages; everything else (geolocation, notifications…) is refused
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb, details) => {

@@ -1,7 +1,7 @@
 // The application menu. On macOS it's the menu bar next to the Apple menu, so it follows
 // the focused window: an editor gets File / Edit / Clip / View commands for that project.
 import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
-import { editorProjectOf, hasAppWindows, showLauncher, showLibrary, showSettings } from './windows'
+import { editorProjectOf, hasAppWindows, showAbout, showLauncher, showLibrary, showSettings } from './windows'
 import { getSettings } from './settings'
 import { checkForUpdates, installUpdate, updateStatus } from './updater'
 
@@ -15,7 +15,7 @@ export function updateMenuItem(): Item {
     enabled: u.state !== 'unsupported' && u.state !== 'checking',
     click: () => {
       void checkForUpdates(true)
-      showSettings('about')
+      void showAbout()
     }
   }
 }
@@ -41,7 +41,7 @@ export function buildAppMenu(): void {
     template.push({
       label: 'Toom',
       submenu: [
-        { role: 'about', label: 'About Toom' },
+        { label: 'About Toom', click: () => void showAbout() },
         updateMenuItem(),
         { type: 'separator' },
         { label: 'Settings…', accelerator: 'Command+,', click: () => showSettings() },
@@ -165,7 +165,11 @@ export function buildAppMenu(): void {
     submenu: [
       { label: 'Keyboard Shortcuts', click: () => send('panel:shortcuts'), enabled: editor },
       ...(!isMac ? ([updateMenuItem()] as Item[]) : []),
-      { label: 'Unsplash API Keys', click: () => void shell.openExternal('https://unsplash.com/oauth/applications') }
+      { type: 'separator' },
+      { label: 'What’s New in Toom', click: () => void shell.openExternal('https://trytoom.tech/changelog') },
+      { label: 'Toom Help', click: () => void shell.openExternal('https://trytoom.tech/#faq') },
+      { label: 'Unsplash API Keys', click: () => void shell.openExternal('https://unsplash.com/oauth/applications') },
+      ...(!isMac ? ([{ type: 'separator' }, { label: 'About Toom', click: () => void showAbout() }] as Item[]) : [])
     ]
   })
 

@@ -11,6 +11,7 @@ import { SettingsWindow, type SectionId } from './settings/SettingsWindow'
 import { useAppearance } from './lib/appearance'
 import { Onboarding } from './onboarding/Onboarding'
 import { RequireAccount } from './account/RequireAccount'
+import { About } from './about/About'
 
 function useHash(): string {
   const [hash, setHash] = useState(() => window.location.hash.replace(/^#/, '') || '/')
@@ -22,7 +23,7 @@ function useHash(): string {
   return hash
 }
 
-const TRANSPARENT = ['/toolbar', '/launcher', '/area', '/island', '/settings', '/welcome']
+const TRANSPARENT = ['/toolbar', '/launcher', '/area', '/island', '/settings', '/welcome', '/about']
 
 function App(): React.JSX.Element {
   const route = useHash()
@@ -37,6 +38,7 @@ function App(): React.JSX.Element {
   if (route.startsWith('/toolbar')) return <Toolbar />
   if (route.startsWith('/island')) return <Island />
   if (route.startsWith('/launcher')) return <Launcher />
+  if (route.startsWith('/about')) return <About />
   if (route.startsWith('/welcome')) return <Onboarding signInOnly={route.startsWith('/welcome/signin')} />
   const area = /^\/area\/([\w-]+)/.exec(route)
   if (area) return <AreaSelect displayId={area[1]} />

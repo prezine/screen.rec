@@ -4,12 +4,15 @@ productName: Toom
 protocols:
   - name: Toom
     schemes: [toom]
-# where installed apps look for updates (electron-updater). Upload the files in dist/ —
-# latest*.yml plus the installers — to this URL after each release.
+# Releases: GitHub Actions (.github/workflows/release.yml) builds every installer and uploads it
+# to a GitHub release; installed apps update from the same release (electron-updater reads
+# latest-mac.yml / latest.yml there). The repo must be public for downloads and updates. To keep
+# the code private, publish to a separate public repo (RELEASE_REPO, see the workflow).
 publish:
-  provider: generic
-  url: ${env.TOOM_UPDATE_URL}
-  channel: latest
+  provider: github
+  owner: prezine
+  repo: toom-software
+  releaseType: draft
 directories:
   buildResources: build
   output: dist
@@ -50,6 +53,8 @@ win:
   # full-bleed artwork for Windows (macOS uses build/icon.png on Apple's icon grid)
   icon: build/icon-win.png
   target:
+    # one installer for both: it installs the x64 or Arm build to match the PC, and auto-update
+    # (one latest.yml per release) then works for both
     - target: nsis
       arch: [x64, arm64]
 # Installers get version-free names so the website can link to
@@ -57,7 +62,7 @@ win:
 dmg:
   artifactName: Toom-${arch}.${ext}
 nsis:
-  artifactName: Toom-Setup-${arch}.${ext}
+  artifactName: Toom-Setup.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
 extraResources:

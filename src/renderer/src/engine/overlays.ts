@@ -364,17 +364,14 @@ export function drawWatermark(ctx: Ctx, W: number, H: number): void {
   ctx.strokeStyle = 'rgba(255,255,255,0.18)'
   ctx.lineWidth = Math.max(1, font * 0.06)
   ctx.stroke()
-  // the mark, in the brand gradient
+  // the mark, in Toom Green
   markPath ??= new Path2D(MARK_D)
   const mx = x + padX
   const my = y + (h - markH) / 2
   ctx.save()
   ctx.translate(mx, my)
   ctx.scale(markW / 2494, markH / 2284)
-  const g = ctx.createLinearGradient(0, 0, 0, 2284) // in the mark's own units
-  g.addColorStop(0, '#88C032')
-  g.addColorStop(1, '#EBAF15')
-  ctx.fillStyle = g
+  ctx.fillStyle = '#0AFF68'
   ctx.fill(markPath, 'evenodd')
   ctx.restore()
   ctx.fillStyle = 'rgba(255,255,255,0.94)'

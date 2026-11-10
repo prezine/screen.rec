@@ -1,4 +1,5 @@
-// Master artwork exported from the approved Toom brand assets.
+// Master artwork exported from the Toom brand kit (trytoom.tech/brand). The `gradient` tone is
+// the colour version: Toom Green #0AFF68 (the files keep their old names).
 import iconUrl from '@renderer/assets/brand/exports/app-icon-gradient.png'
 import iconWhiteUrl from '@renderer/assets/brand/exports/app-icon-white.png'
 import iconBlackUrl from '@renderer/assets/brand/exports/app-icon-black-on-white.png'
@@ -11,7 +12,7 @@ import wordmarkBlackUrl from '@renderer/assets/brand/exports/wordmark-black.png'
 
 type Tone = 'gradient' | 'white' | 'black'
 
-/** app icon: white mark on the green → amber gradient */
+/** app icon: the green mark on a white tile */
 export function AppIcon({ size = 64, tone = 'gradient', className = '' }: { size?: number; tone?: Tone; className?: string }): React.JSX.Element {
   const src = tone === 'white' ? iconWhiteUrl : tone === 'black' ? iconBlackUrl : iconUrl
   return (
@@ -23,8 +24,9 @@ export function AppIcon({ size = 64, tone = 'gradient', className = '' }: { size
       draggable={false}
       className={className}
       style={{
-        borderRadius: tone === 'white' ? 0 : size * 0.077,
-        boxShadow: tone === 'gradient' ? `0 ${size * 0.2}px ${size * 0.5}px -${size * 0.18}px rgba(150, 170, 30, 0.55)` : undefined
+        // the colour tile has its corners drawn in (22.5%, like the macOS icon); others are square
+        borderRadius: tone === 'white' ? 0 : tone === 'gradient' ? size * 0.225 : size * 0.077,
+        boxShadow: tone === 'gradient' ? `0 ${size * 0.2}px ${size * 0.5}px -${size * 0.18}px rgba(10, 255, 104, 0.35)` : undefined
       }}
     />
   )

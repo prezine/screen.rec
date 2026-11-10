@@ -60,6 +60,17 @@ const api = {
     showLauncher: (): Promise<void> => ipcRenderer.invoke('app:showLauncher'),
     showLibrary: (): Promise<void> => ipcRenderer.invoke('app:showLibrary'),
     showSettings: (section?: string): Promise<void> => ipcRenderer.invoke('app:showSettings', section),
+    showAbout: (): Promise<void> => ipcRenderer.invoke('app:about'),
+    aboutInfo: (): Promise<{
+      version: string
+      electron: string
+      chrome: string
+      node: string
+      platform: NodeJS.Platform
+      arch: string
+      os: string
+      packaged: boolean
+    }> => ipcRenderer.invoke('app:aboutInfo'),
     quit: (): Promise<void> => ipcRenderer.invoke('app:quit'),
     confirm: (o: { message: string; detail?: string; ok?: string; destructive?: boolean }): Promise<boolean> =>
       ipcRenderer.invoke('app:confirm', o),

@@ -257,6 +257,42 @@ export function showSettings(section = 'general'): BrowserWindow | null {
 }
 
 // ---------------------------------------------------------------------------
+// About Toom (needs no account: it's how anyone checks which version they have)
+// ---------------------------------------------------------------------------
+
+let aboutWin: BrowserWindow | null = null
+
+export function showAbout(): BrowserWindow {
+  if (alive(aboutWin)) {
+    aboutWin.show()
+    aboutWin.focus()
+    return aboutWin
+  }
+  aboutWin = new BrowserWindow({
+    width: 380,
+    height: 540,
+    resizable: false,
+    show: false,
+    title: 'About Toom',
+    backgroundColor: paint('#0e0e12', '#fbfbfd'),
+    titleBarStyle: isMac ? 'hiddenInset' : 'default',
+    trafficLightPosition: { x: 14, y: 14 },
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    autoHideMenuBar: true,
+    ...materialOptions(),
+    webPreferences: baseWebPreferences(true)
+  })
+  applyWindowMaterial(aboutWin, 16)
+  hardenLinks(aboutWin)
+  aboutWin.once('ready-to-show', () => aboutWin?.show())
+  aboutWin.on('closed', () => (aboutWin = null))
+  load(aboutWin, '/about')
+  return aboutWin
+}
+
+// ---------------------------------------------------------------------------
 // Welcome (first run)
 // ---------------------------------------------------------------------------
 
