@@ -1,7 +1,7 @@
 {
   "name": "toom",
   "productName": "Toom",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Toom — screen recorder and editor with automatic zoom, smooth cursor and beautiful backgrounds.",
   "main": "./out/main/index.js",
   "author": "Pandascrow Technologies",
