@@ -4,6 +4,7 @@ import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
 import { editorProjectOf, hasAppWindows, showAbout, showLauncher, showLibrary, showSettings } from './windows'
 import { getSettings } from './settings'
 import { checkForUpdates, installUpdate, updateStatus } from './updater'
+import { showLogs } from './log'
 
 /** "Check for Updates…", or "Restart to Update" once one is downloaded */
 export function updateMenuItem(): Item {
@@ -169,6 +170,17 @@ export function buildAppMenu(): void {
       { label: 'What’s New in Toom', click: () => void shell.openExternal('https://trytoom.tech/changelog') },
       { label: 'Toom Help', click: () => void shell.openExternal('https://trytoom.tech/#faq') },
       { label: 'Unsplash API Keys', click: () => void shell.openExternal('https://unsplash.com/oauth/applications') },
+      { type: 'separator' },
+      { label: isMac ? 'Show Logs in Finder' : 'Show Logs in Explorer', click: () => showLogs() },
+      {
+        label: 'Report a Problem…',
+        click: () => {
+          // the log can't ride along in a mailto: link, so show it, ready to attach
+          showLogs()
+          const body = `What happened?\n\n\nWhat did you expect?\n\n\n(Please attach main.log, which just opened in ${isMac ? 'Finder' : 'Explorer'}.)\n\nToom ${app.getVersion()} · ${process.platform} ${process.getSystemVersion()} · ${process.arch}`
+          void shell.openExternal(`mailto:hello@trytoom.tech?subject=${encodeURIComponent(`Toom ${app.getVersion()}: a problem`)}&body=${encodeURIComponent(body)}`)
+        }
+      },
       ...(!isMac ? ([{ type: 'separator' }, { label: 'About Toom', click: () => void showAbout() }] as Item[]) : [])
     ]
   })

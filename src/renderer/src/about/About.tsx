@@ -128,7 +128,10 @@ export function About(): React.JSX.Element {
         </div>
       </main>
       <footer className="px-6 pt-4 pb-5 text-center text-[11px] leading-relaxed text-ink-400">
-        © {new Date().getFullYear()} Toom. All rights reserved.
+        <button className="no-drag mb-1 underline-offset-2 hover:text-ink-200 hover:underline" onClick={() => void api.app.showLogs()}>
+          Show logs
+        </button>
+        <span className="block">© {new Date().getFullYear()} Toom. All rights reserved.</span>
         {info && (
           <span className="block">
             Electron {info.electron} · Chromium {info.chrome.split('.')[0]}

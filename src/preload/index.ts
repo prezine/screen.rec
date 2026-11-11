@@ -61,6 +61,10 @@ const api = {
     showLibrary: (): Promise<void> => ipcRenderer.invoke('app:showLibrary'),
     showSettings: (section?: string): Promise<void> => ipcRenderer.invoke('app:showSettings', section),
     showAbout: (): Promise<void> => ipcRenderer.invoke('app:about'),
+    /** reveal main.log in Finder / Explorer */
+    showLogs: (): Promise<void> => ipcRenderer.invoke('app:showLogs'),
+    /** the last few hundred log lines */
+    diagnostics: (): Promise<string> => ipcRenderer.invoke('app:diagnostics'),
     aboutInfo: (): Promise<{
       version: string
       electron: string

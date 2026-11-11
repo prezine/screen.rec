@@ -202,6 +202,20 @@ function SourceTile({
 // Launcher
 // ---------------------------------------------------------------------------
 
+/**
+ * What went wrong starting a recording, in words people can act on. Screen access is the usual
+ * cause on a Mac: macOS refuses quietly until Toom is allowed (and reopened).
+ */
+function recordingError(err: unknown, isMac: boolean): string {
+  const raw = (err instanceof Error ? `${err.name}: ${err.message}` : String(err)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+  if (/NotAllowed|Permission|denied|not permitted|NotReadable|Could not start video source|AbortError/i.test(raw))
+    return isMac
+      ? 'Toom can’t see your screen. Allow Toom in System Settings → Privacy & Security → Screen & System Audio Recording, then quit and reopen Toom.'
+      : 'Toom can’t capture your screen. Check that no other app is blocking screen capture, then try again.'
+  if (/NotFound|Requested device not found/i.test(raw)) return 'The camera or microphone you picked isn’t available. Choose another in the recording bar.'
+  return `Recording couldn’t start: ${raw}`
+}
+
 export function Launcher(): React.JSX.Element {
   const { settings, set } = useSettings()
   const { cameras, mics, unlock } = useMediaDevices()
@@ -245,9 +259,10 @@ export function Launcher(): React.JSX.Element {
       }),
       api.launcher.onHidden(() => setOpen(null)),
       api.rec.onError((m) => {
+        console.error('[rec] recording failed', m)
         session.current = null
         setBusy(null)
-        setError(m)
+        setError(recordingError(m, isMac))
       })
     ]
     const onBlur = (): void => setOpen(null)
@@ -315,10 +330,11 @@ export function Launcher(): React.JSX.Element {
         await s.run() // main hides the launcher and drives the session from here
         setBusy(null)
       } catch (err) {
+        console.error('[rec] could not start', opts.kind, err)
         s.cleanup()
         session.current = null
         setBusy(null)
-        setError(err instanceof Error ? err.message : String(err))
+        setError(recordingError(err, isMac))
         void api.app.showLauncher()
       }
     },

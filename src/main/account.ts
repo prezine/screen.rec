@@ -264,12 +264,15 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<Re
       signal: AbortSignal.timeout(20000)
     })
   } catch (err) {
-    console.warn(`[account] ${method} ${API_URL}${path} failed:`, err instanceof Error ? err.message : err)
-    return { ok: false, status: 0, code: 'offline', message: offlineMessage() }
+    console.warn(`[account] ${method} ${API_URL}${path} failed:`, err)
+    // Chromium's reason (ERR_NAME_NOT_RESOLVED, ERR_CERT_…) tells support what's wrong at a glance
+    const code = /(ERR_[A-Z_]+)/.exec(err instanceof Error ? `${err.message} ${String((err as Error & { cause?: unknown }).cause ?? '')}` : String(err))?.[1]
+    return { ok: false, status: 0, code: 'offline', message: `${offlineMessage()}${code ? ` (${code})` : ''}` }
   }
   const data = (await res.json().catch(() => null)) as (T & { error?: { code: string; message: string } }) | null
   if (!res.ok || !data) {
     const err = data?.error
+    if (res.status >= 500 || !data) console.warn(`[account] ${method} ${path} → HTTP ${res.status}`, err?.code ?? '')
     if (res.status === 401 && token && path.startsWith('/v1/me')) signOutLocally()
     return {
       ok: false,
@@ -423,6 +426,7 @@ export function registerDeepLinks(): void {
 type Ask = { email: string; code?: string; password?: string; name?: string }
 
 export function registerAccountIpc(): void {
+  console.info(`[account] API ${API_URL}`)
   void deviceId().then((id) => (myDevice = id))
   loaded = load().then(() => {
     ready = true

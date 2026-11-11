@@ -1,4 +1,5 @@
 import './migrate'
+import './log'
 import {
   app,
   BrowserWindow,
@@ -18,6 +19,7 @@ import { promises as fs } from 'node:fs'
 import type { CaptureSource, DisplayInfo, NRect, ProjectMeta } from '@shared/types'
 import type { SettingsPatch } from '@shared/settings'
 import { handleMediaProtocol, registerMediaScheme } from './protocol'
+import { recentLog, showLogs } from './log'
 import {
   closeWriter,
   closeWritersOf,
@@ -126,6 +128,8 @@ function registerIpc(): void {
   ipcMain.handle('app:platform', () => process.platform)
   ipcMain.handle('app:version', () => app.getVersion())
   ipcMain.handle('app:about', () => void showAbout())
+  ipcMain.handle('app:showLogs', () => showLogs())
+  ipcMain.handle('app:diagnostics', () => recentLog(300))
   ipcMain.handle('app:aboutInfo', () => ({
     version: app.getVersion(),
     electron: process.versions.electron,
@@ -437,7 +441,13 @@ app.whenReady().then(() => {
       const sources = await desktopCapturer.getSources({ types: ['screen', 'window'] })
       const src =
         sources.find((s) => s.id === pendingCapture?.sourceId) ?? sources.find((s) => s.id.startsWith('screen:'))
-      if (!src) return cb({})
+      if (!src) {
+        // usually Screen Recording permission: macOS then lists nothing to capture
+        console.warn(
+          `[capture] nothing to capture (${sources.length} sources; screen access ${isMac ? systemPreferences.getMediaAccessStatus('screen') : 'n/a'})`
+        )
+        return cb({})
+      }
       cb(pendingCapture?.audio ? { video: src, audio: 'loopback' } : { video: src })
     } catch (err) {
       console.error('[capture] display media handler failed', err)
